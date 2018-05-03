@@ -1,0 +1,36 @@
+program = 'program' program-ident [const-decl] [var-decl] {function} statement '.'
+
+const-decl = 'const' var-ident '=' literal ';' {var-ident '=' literal ';'}
+var-decl = 'var' var-ident {',' var-ident} ':' type-name ';' {var-ident {',' var-ident} ':' type-name ';'}
+
+function = function-decl [var-decl] statement ';'
+function-decl = 'function' function-ident '(' [var-ident ':' type-name { ',' var-ident ':' type-name}] ')' [':', type-name] ';'
+
+statement =
+    var-ident ':=' expression   |
+    'if' condition 'then' statement ['else' statement] |
+    'while' condition 'do' statement |
+    'for' var-ident ':=' expression for-operator expression 'do' statement |
+    compound-statement |
+    function-call
+
+condition = expression ('<' | '<=' | '>' | '>=' | '=' | '<>') expression
+
+expression = ['-'] term {('+' | '-' | 'mod') term}
+term = factor {('*' | '/' | 'div') factor}
+factor =
+    var-ident |
+    literal |
+    function-call |
+    '(' expression ')'
+
+function-call = function-ident '(' [expression {',' expression}] ')'
+
+compound-statement = 'begin' {statement} ';' 'end'
+
+for-operator = 'to' | 'downto'
+program-ident = ident
+var-ident = ident
+function-ident = ident
+type-name = 'integer'
+literal = number
