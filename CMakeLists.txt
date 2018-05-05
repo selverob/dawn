@@ -8,7 +8,7 @@ add_definitions(${LLVM_DEFINITIONS})
 include_directories(${LLVM_INCLUDE_DIRS})
 llvm_map_components_to_libnames(llvm_libs core)
 
-add_executable(dawn main.cpp)
+add_executable(dawn main.cpp lex/Lexeme.h lex/Lexer.cpp lex/Lexer.h lex/Lexeme.cpp lex/Lexeme.h)
 
 target_link_libraries(dawn ${llvm_libs})
 
