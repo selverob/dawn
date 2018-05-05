@@ -12,21 +12,24 @@ statement =
     'while' condition 'do' statement |
     'for' var-ident ':=' expression for-operator expression 'do' statement |
     compound-statement |
+    'exit' |
     function-call
 
-condition = expression ('<' | '<=' | '>' | '>=' | '=' | '<>') expression
+conditional = condition {('and', 'or') condition}
+
+condition = expression [('<' | '<=' | '>' | '>=' | '=' | '<>') expression]
 
 expression = ['-'] term {('+' | '-' | 'mod') term}
-term = factor {('*' | '/' | 'div') factor}
+term = factor {('*' | 'div') factor}
 factor =
     var-ident |
     literal |
     function-call |
-    '(' expression ')'
+    '(' conditional ')'
 
 function-call = function-ident '(' [expression {',' expression}] ')'
 
-compound-statement = 'begin' {statement} ';' 'end'
+compound-statement = 'begin' {statement ';'} 'end'
 
 for-operator = 'to' | 'downto'
 program-ident = ident
