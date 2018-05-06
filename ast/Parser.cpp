@@ -44,14 +44,17 @@ std::unique_ptr<ast::Expr> ast::Parser::parseIdentifierExpr() {
         return std::make_unique<ast::VarExpr>(Ident.IdentifierStr);
     }
     auto Call = std::make_unique<ast::CallExpr>(Ident.IdentifierStr);
-    while (NextLexeme.K != Lexeme::Kind::RPAR) {
-        Call->addArgument(parseExpr());
-        if (!(NextLexeme.K == Lexeme::Kind::UNKNOWN && NextLexeme.Char == ',')) {
-            return LogError("Expected function argument separator (,)");
-        }
-        getLexeme();
-    }
     getLexeme();
+    while (true) {
+        Call->addArgument(parseExpr());
+        if (!((NextLexeme.K == Lexeme::Kind::UNKNOWN && NextLexeme.Char == ',') || NextLexeme.K == Lexeme::Kind::RPAR)) {
+            return LogError("Expected function argument separator (,) or list end ())");
+        }
+        if (getLexeme().K == Lexeme::Kind::RPAR) {
+            break;
+        }
+    }
+    return std::unique_ptr<Expr>(std::move(Call));
 }
 
 std::unique_ptr<ast::Expr> ast::Parser::parseUnaryOpExpr() {

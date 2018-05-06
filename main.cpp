@@ -14,11 +14,11 @@ int main() {
         std::cin.getline(Buf.get(), 280);
         size_t Len = std::strlen(Buf.get());
         Lexer Lex(Buf.get(), Buf.get() + Len);
-        /*Lexeme L = Lex.getLexeme();
-        while (L.K != Lexeme::Kind::ENDOFFILE) {
-            std::cout << L.K << " ";
-            L = Lex.getLexeme();
-        }*/
+//        Lexeme L = Lex.getLexeme();
+//        while (L.K != Lexeme::Kind::ENDOFFILE) {
+//            std::cout << L << " ";
+//            L = Lex.getLexeme();
+//        }
         ast::Parser Parser(std::move(Lex));
         auto expr = Parser.parseExpr();
         ast::Printer Printer(Out);

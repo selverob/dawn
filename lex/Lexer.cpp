@@ -124,7 +124,7 @@ Lexeme Lexer::readNumber(int base) {
 }
 
 Lexeme Lexer::readOperator() {
-    Lexeme L(Lexeme::Kind::UNKNOWN);
+    Lexeme L(Lexeme::Kind::UNKNOWN, LastChar);
     switch (LastChar) {
         case '=':
             L = Lexeme(Lexeme::Kind::EQ);

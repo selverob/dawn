@@ -19,12 +19,14 @@ void ast::Printer::visit(ast::BinaryOpExpr &E) {
 
 void ast::Printer::visit(ast::CallExpr &E) {
     Out << E.FunctionName;
+    Out << "(";
     for (size_t i = 0; i < E.Args.size(); i++) {
         E.Args[i]->accept(*this);
         if (i != E.Args.size() - 1) {
             Out << ", ";
         }
     }
+    Out << ")";
 }
 
 void ast::Printer::visit(ast::NumExpr &E) {
