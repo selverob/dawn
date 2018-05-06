@@ -13,6 +13,8 @@ class Lexer {
 public:
     Lexer(llvm::MemoryBufferRef Input);
     Lexer(char *Start, char *End);
+    Lexer(const Lexer &L) = delete;
+    Lexer(Lexer&&);
     Lexeme getLexeme();
 
 private:

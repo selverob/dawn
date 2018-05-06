@@ -3,6 +3,7 @@
 #include <memory>
 #include "lex/Lexeme.h"
 #include "lex/Lexer.h"
+#include "ast/Parser.h"
 
 int main() {
     std::unique_ptr<char[]> Buf(new char[280]);
@@ -10,11 +11,8 @@ int main() {
         std::cin.getline(Buf.get(), 280);
         size_t Len = std::strlen(Buf.get());
         Lexer Lex(Buf.get(), Buf.get() + Len);
-        Lexeme Token = Lex.getLexeme();
-        while (Token.K != Lexeme::Kind::ENDOFFILE) {
-            std::cout << Token << ' ';
-            Token = Lex.getLexeme();
-        }
+        ast::Parser Parser(std::move(Lex));
+        auto expr = Parser.parseExpr();
         std::cout << std::endl;
     }
     return 0;

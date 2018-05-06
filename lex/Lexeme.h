@@ -9,7 +9,7 @@
 #include <string>
 
 struct Lexeme {
-    enum class Kind {
+    enum struct Kind {
         UNKNOWN,
         ENDOFFILE,
         PROGRAM,
@@ -29,6 +29,7 @@ struct Lexeme {
         EXIT,
         AND,
         OR,
+        NOT,
         LT,
         LTE,
         EQ,

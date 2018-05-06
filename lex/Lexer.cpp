@@ -21,7 +21,13 @@ Lexer::Lexer(char *Start, char *End) :
         End(End),
         LastChar(' ') {}
 
+Lexer::Lexer(Lexer &&Other) : Current(Other.Current), End(Other.End), LastChar(Other.LastChar) {
+    Other.Current = nullptr;
+    Other.End = nullptr;
+}
+
 Lexeme Lexer::getLexeme() {
+    assert(Current != nullptr);
     while (isspace(LastChar))
         readChar();
 
@@ -84,6 +90,7 @@ Lexeme Lexer::readIdentifier() {
             .Case("exit", Lexeme::Kind::EXIT)
             .Case("and", Lexeme::Kind::AND)
             .Case("or", Lexeme::Kind::OR)
+            .Case("not", Lexeme::Kind::NOT)
             .Case("mod", Lexeme::Kind::MOD)
             .Default(Lexeme::Kind::IDENT);
     if (Kind == Lexeme::Kind::IDENT) {
@@ -106,7 +113,7 @@ Lexeme Lexer::readNumber(int base) {
             AcceptableChars = &HexadecimalChars;
             break;
         default:
-            assert(false);
+            llvm_unreachable("Only numbers with base 8, 10 and 16 are supported");
     }
     std::string Num;
     while (AcceptableChars->find(LastChar) != AcceptableChars->end()) {
@@ -177,3 +184,4 @@ Lexeme Lexer::readOperator() {
     readChar();
     return L;
 }
+
