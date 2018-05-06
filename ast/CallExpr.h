@@ -10,11 +10,10 @@
 #include <vector>
 #include <memory>
 #include "Expr.h"
+#include "Visitor.h"
 
 namespace ast {
     class CallExpr : public Expr {
-        std::string FunctionName;
-        std::vector<std::unique_ptr<Expr>> Args;
     public:
         CallExpr(std::string FunctionName) :
                 FunctionName(std::move(FunctionName)) {}
@@ -22,6 +21,13 @@ namespace ast {
         void addArgument(std::unique_ptr<Expr> Arg) {
             Args.push_back(std::move(Arg));
         }
+
+        void accept(Visitor &V) override {
+            V.visit(*this);
+        }
+
+        std::string FunctionName;
+        std::vector<std::unique_ptr<Expr>> Args;
     };
 }
 

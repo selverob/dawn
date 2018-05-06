@@ -8,14 +8,21 @@
 #include <memory>
 #include "../lex/Lexeme.h"
 #include "Expr.h"
+#include "Visitor.h"
+
 
 namespace ast {
     class BinaryOpExpr : public Expr {
-        Lexeme::Kind Op;
-        std::unique_ptr<Expr> L, R;
     public:
         BinaryOpExpr(Lexeme::Kind Op, std::unique_ptr<Expr> L, std::unique_ptr<Expr> R) :
                 Op(Op), L(std::move(L)), R(std::move(R)) {}
+
+        void accept(Visitor &V) override {
+            V.visit(*this);
+        }
+
+        Lexeme::Kind Op;
+        std::unique_ptr<Expr> L, R;
     };
 }
 

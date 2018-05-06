@@ -10,17 +10,19 @@
 #include "BinaryOpExpr.h"
 
 ast::Parser::Parser(Lexer Lexer): L(std::move(Lexer)), NextLexeme(L.getLexeme()), Precedences(11) {
-    Precedences[static_cast<int>(Lexeme::Kind::EQ)] = 5;
-    Precedences[static_cast<int>(Lexeme::Kind::NEQ)] = 5;
-    Precedences[static_cast<int>(Lexeme::Kind::LT)] = 10;
-    Precedences[static_cast<int>(Lexeme::Kind::LTE)] = 10;
-    Precedences[static_cast<int>(Lexeme::Kind::GT)] = 10;
-    Precedences[static_cast<int>(Lexeme::Kind::GTE)] = 10;
-    Precedences[static_cast<int>(Lexeme::Kind::PLUS)] = 20;
-    Precedences[static_cast<int>(Lexeme::Kind::MINUS)] = 20;
-    Precedences[static_cast<int>(Lexeme::Kind::MUL)] = 30;
-    Precedences[static_cast<int>(Lexeme::Kind::DIV)] = 30;
-    Precedences[static_cast<int>(Lexeme::Kind::MOD)] = 40;
+    Precedences[static_cast<int>(Lexeme::Kind::AND)] = 10;
+    Precedences[static_cast<int>(Lexeme::Kind::OR)] = 10;
+    Precedences[static_cast<int>(Lexeme::Kind::EQ)] = 20;
+    Precedences[static_cast<int>(Lexeme::Kind::NEQ)] = 20;
+    Precedences[static_cast<int>(Lexeme::Kind::LT)] = 30;
+    Precedences[static_cast<int>(Lexeme::Kind::LTE)] = 30;
+    Precedences[static_cast<int>(Lexeme::Kind::GT)] = 30;
+    Precedences[static_cast<int>(Lexeme::Kind::GTE)] = 30;
+    Precedences[static_cast<int>(Lexeme::Kind::PLUS)] = 40;
+    Precedences[static_cast<int>(Lexeme::Kind::MINUS)] = 40;
+    Precedences[static_cast<int>(Lexeme::Kind::MUL)] = 50;
+    Precedences[static_cast<int>(Lexeme::Kind::DIV)] = 50;
+    Precedences[static_cast<int>(Lexeme::Kind::MOD)] = 60;
 }
 
 Lexeme ast::Parser::getLexeme() {

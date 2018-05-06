@@ -6,7 +6,12 @@
 #define DAWN_EXPR_H
 
 namespace ast {
-    class Expr {};
+    class Visitor;
+
+    class Expr {
+    public:
+        virtual void accept(Visitor &V) = 0;
+    };
 }
 
 #endif //DAWN_EXPR_H

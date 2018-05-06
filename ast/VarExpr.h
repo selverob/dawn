@@ -6,13 +6,20 @@
 #define DAWN_VAREXPR_H
 
 #include <string>
+
 #include "Expr.h"
+#include "Visitor.h"
 
 namespace ast {
     class VarExpr : public Expr {
-        std::string VarName;
     public:
         VarExpr(const std::string &VarName): VarName(VarName) {}
+
+        void accept(Visitor &V) override {
+            V.visit(*this);
+        }
+
+        std::string VarName;
     };
 }
 
