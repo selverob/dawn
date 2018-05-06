@@ -133,23 +133,18 @@ Lexeme Lexer::readOperator() {
             L = Lexeme(Lexeme::Kind::PLUS);
             break;
         case '-':
-            readChar();
             L = Lexeme(Lexeme::Kind::MINUS);
             break;
         case '*':
-            readChar();
             L = Lexeme(Lexeme::Kind::MUL);
             break;
         case '/':
-            readChar();
             L = Lexeme(Lexeme::Kind::DIV);
             break;
         case '(':
-            readChar();
             L = Lexeme(Lexeme::Kind::LPAR);
             break;
         case ')':
-            readChar();
             L = Lexeme(Lexeme::Kind::RPAR);
             break;
         case ':':
