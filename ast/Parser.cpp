@@ -3,11 +3,18 @@
 //
 
 #include "Parser.h"
-#include "NumExpr.h"
-#include "VarExpr.h"
-#include "CallExpr.h"
-#include "UnaryOpExpr.h"
-#include "BinaryOpExpr.h"
+#include "expr/NumExpr.h"
+#include "expr/VarExpr.h"
+#include "expr/CallExpr.h"
+#include "expr/UnaryOpExpr.h"
+#include "expr/BinaryOpExpr.h"
+#include "stmt/AssignmentStmt.h"
+#include "stmt/CallStmt.h"
+#include "stmt/CompoundStmt.h"
+#include "stmt/ExitStmt.h"
+#include "stmt/ForStmt.h"
+#include "stmt/IfStmt.h"
+#include "stmt/WhileStmt.h"
 
 ast::Parser::Parser(Lexer Lexer): L(std::move(Lexer)), NextLexeme(L.getLexeme()), Precedences(11) {
     Precedences[static_cast<int>(Lexeme::Kind::AND)] = 10;
@@ -43,18 +50,7 @@ std::unique_ptr<ast::Expr> ast::Parser::parseIdentifierExpr() {
     if (NextLexeme.K != Lexeme::Kind::LPAR) {
         return std::make_unique<ast::VarExpr>(Ident.IdentifierStr);
     }
-    auto Call = std::make_unique<ast::CallExpr>(Ident.IdentifierStr);
-    getLexeme();
-    while (true) {
-        Call->addArgument(parseExpr());
-        if (!((NextLexeme.K == Lexeme::Kind::UNKNOWN && NextLexeme.Char == ',') || NextLexeme.K == Lexeme::Kind::RPAR)) {
-            return LogError("Expected function argument separator (,) or list end ())");
-        }
-        if (getLexeme().K == Lexeme::Kind::RPAR) {
-            break;
-        }
-    }
-    return std::unique_ptr<Expr>(std::move(Call));
+    return parseFunctionCall(Ident);
 }
 
 std::unique_ptr<ast::Expr> ast::Parser::parseUnaryOpExpr() {
@@ -127,5 +123,143 @@ unsigned ast::Parser::getPrecedence(Lexeme::Kind K) {
     if (Precedences.count(Key) == 0)
         return 0;
     return Precedences[Key];
+}
+
+std::unique_ptr<ast::Expr> ast::Parser::parseFunctionCall(const Lexeme &Ident) {
+    auto Call = std::make_unique<ast::CallExpr>(Ident.IdentifierStr);
+    getLexeme();
+    while (true) {
+        auto Arg = parseExpr();
+        if (Arg == nullptr)
+            return nullptr;
+        Call->addArgument(std::move(Arg));
+        if (!(NextLexeme.Char == ',' || NextLexeme.K == Lexeme::Kind::RPAR)) {
+            return LogError("Expected function argument separator (,) or list end ())");
+        }
+        if (getLexeme().K == Lexeme::Kind::RPAR) {
+            break;
+        }
+    }
+    return std::unique_ptr<Expr>(std::move(Call));
+}
+
+std::unique_ptr<ast::Stmt> ast::Parser::parseStmt() {
+    switch (NextLexeme.K) {
+        case Lexeme::Kind::IDENT:
+            return parseIdentifierStmt();
+        case Lexeme::Kind::IF:
+            return parseIfStmt();
+        case Lexeme::Kind::WHILE:
+            return parseWhileStmt();
+        case Lexeme::Kind::FOR:
+            return parseForStmt();
+        case Lexeme::Kind::BEGIN:
+            return parseCompoundStmt();
+        case Lexeme::Kind::EXIT:
+            getLexeme();
+            return std::make_unique<ExitStmt>();
+    }
+}
+
+std::unique_ptr<ast::Stmt> ast::Parser::parseIfStmt() {
+    auto KW = getLexeme();
+    assert(KW.K == Lexeme::Kind::IF);
+    auto Condition = parseExpr();
+    if (Condition == nullptr)
+        return nullptr;
+    KW = getLexeme();
+    if (KW.K != Lexeme::Kind::THEN) {
+        return LogError("Expected 'then'");
+    }
+    auto Body = parseStmt();
+    if (Body == nullptr)
+        return nullptr;
+    auto Else = std::unique_ptr<Stmt>(nullptr);
+    if (NextLexeme.K == Lexeme::Kind::ELSE) {
+        getLexeme();
+        Else = parseStmt();
+        if (Else == nullptr)
+            return nullptr;
+    }
+    return std::make_unique<ast::IfStmt>(
+            std::move(Condition), std::move(Body), std::move(Else));
+}
+
+std::unique_ptr<ast::Stmt> ast::Parser::parseWhileStmt() {
+    auto KW = getLexeme();
+    assert(KW.K == Lexeme::Kind::WHILE);
+    auto Condition = parseExpr();
+    if (Condition == nullptr)
+        return nullptr;
+    KW = getLexeme();
+    if (KW.K != Lexeme::Kind::DO)
+        return LogError("Expected a 'do'");
+    auto Body = parseStmt();
+    if (Body == nullptr)
+        return nullptr;
+    return std::make_unique<WhileStmt>(std::move(Condition), std::move(Body));
+}
+
+std::unique_ptr<ast::Stmt> ast::Parser::parseForStmt() {
+    auto KW = getLexeme();
+    assert(KW.K == Lexeme::Kind::FOR);
+    auto VarName = getLexeme();
+    if (VarName.K != Lexeme::Kind::IDENT)
+        return LogError("Expected variable name in for");
+    KW = getLexeme();
+    if (KW.K != Lexeme::Kind::ASSIGN)
+        return LogError("Expected assignment operator in for");
+    auto Lower = parseExpr();
+    if (Lower == nullptr)
+        return nullptr;
+    auto Operator = getLexeme();
+    if (Operator.K != Lexeme::Kind::TO && Operator.K != Lexeme::Kind::DOWNTO)
+        return LogError("Unknown operator in for, expecting 'downto' or 'to'");
+    auto Upper = parseExpr();
+    if (Upper == nullptr)
+        return nullptr;
+    KW = getLexeme();
+    if (KW.K != Lexeme::Kind::DO)
+        return LogError("Expecting a 'do' after for statement conditions");
+    auto Body = parseStmt();
+    if (Body == nullptr)
+        return nullptr;
+    return std::make_unique<ForStmt>(
+            VarName.IdentifierStr, Operator.K, std::move(Lower), std::move(Upper), std::move(Body));
+}
+
+std::unique_ptr<ast::Stmt> ast::Parser::parseCompoundStmt() {
+    assert(NextLexeme.K == Lexeme::Kind::BEGIN);
+    getLexeme();
+    auto C = std::make_unique<CompoundStmt>();
+    while (NextLexeme.K != Lexeme::Kind::END) {
+        C->addStmt(parseStmt());
+        if (!C->Body.back()) {
+            return nullptr;
+        }
+        if (NextLexeme.Char != ';') {
+            std::cout << NextLexeme << std::endl;
+            return LogError("Missing semicolon in compound statement");
+        }
+        getLexeme();
+    }
+    getLexeme();
+    return std::unique_ptr(std::move(C));
+}
+
+std::unique_ptr<ast::Stmt> ast::Parser::parseIdentifierStmt() {
+    auto Id = getLexeme();
+    assert(Id.K == Lexeme::Kind::IDENT);
+    if (NextLexeme.K == Lexeme::Kind::ASSIGN) {
+        getLexeme();
+        auto Val = parseExpr();
+        if (Val == nullptr)
+            return nullptr;
+        return std::make_unique<AssignmentStmt>(Id.IdentifierStr, std::move(Val));
+    }
+    if (NextLexeme.K == Lexeme::Kind::LPAR) {
+        return std::make_unique<CallStmt>(parseFunctionCall(Id));
+    }
+    return LogError("Naked identifier encountered instead of a statement");
 }
 

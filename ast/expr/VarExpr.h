@@ -8,7 +8,7 @@
 #include <string>
 
 #include "Expr.h"
-#include "Visitor.h"
+#include "../Visitor.h"
 
 namespace ast {
     class VarExpr : public Expr {

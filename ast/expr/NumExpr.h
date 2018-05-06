@@ -6,7 +6,7 @@
 #define DAWN_NUMEXPR_H
 
 #include "Expr.h"
-#include "Visitor.h"
+#include "../Visitor.h"
 
 namespace ast {
     class NumExpr : public Expr {

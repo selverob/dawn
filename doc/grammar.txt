@@ -8,24 +8,26 @@ function-decl = 'function' function-ident '(' [var-ident ':' type-name { ',' var
 
 statement =
     var-ident ':=' expression   |
-    'if' condition 'then' statement ['else' statement] |
-    'while' condition 'do' statement |
+    'if' expression 'then' statement ['else' statement] |
+    'while' expression 'do' statement |
     'for' var-ident ':=' expression for-operator expression 'do' statement |
     compound-statement |
     'exit' |
     function-call
 
-conditional = condition {('and', 'or') condition}
-
-condition = expression [('<' | '<=' | '>' | '>=' | '=' | '<>') expression]
-
-expression = ['-'] term {('+' | '-' | 'mod') term}
-term = factor {('*' | 'div') factor}
-factor =
-    var-ident |
+-- VARIANT 2 - operator precedence parsing --
+expression =
+    identifier-expression |
     literal |
-    function-call |
-    '(' conditional ')'
+    ('-' | 'not') expression |
+    '(' expression ')' |
+    expression ('<' | '<=' | '>' | '>=' | '=' | '<>' | '+' | '-' | 'mod' | '*' | 'div' | 'and' | 'or') expression
+
+identifier-expression =
+    var-ident |
+    function-ident '(' [expression {',' expression}] ')'
+
+-------
 
 function-call = function-ident '(' [expression {',' expression}] ')'
 

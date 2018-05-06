@@ -6,9 +6,9 @@
 #define DAWN_BINARYOPEXPR_H
 
 #include <memory>
-#include "../lex/Lexeme.h"
+#include "../../lex/Lexeme.h"
 #include "Expr.h"
-#include "Visitor.h"
+#include "../Visitor.h"
 
 
 namespace ast {

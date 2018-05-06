@@ -6,10 +6,10 @@
 #define DAWN_UNARYOPEXPR_H
 
 #include <bits/unique_ptr.h>
-#include "../lex/Lexeme.h"
+#include "../../lex/Lexeme.h"
 
 #include "Expr.h"
-#include "Visitor.h"
+#include "../Visitor.h"
 
 namespace ast {
     class UnaryOpExpr : public Expr {
