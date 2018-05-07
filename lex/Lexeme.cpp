@@ -5,17 +5,19 @@
 #include <cassert>
 #include "Lexeme.h"
 
-Lexeme::Lexeme(Lexeme::Kind K, llvm::SMLoc Position) : K(K), Loc(Position) {}
+Lexeme::Lexeme(Lexeme::Kind K, llvm::SMLoc Position) : K(K), Loc(Position), Char(0), NumericValue(0) {}
 
-Lexeme::Lexeme(Lexeme::Kind K, char Char, llvm::SMLoc Position) : K(K), Char(Char), Loc(Position) {
+Lexeme::Lexeme(Lexeme::Kind K, char Char, llvm::SMLoc Position) : K(K), Char(Char), Loc(Position), NumericValue(0) {
     assert(K == Kind::UNKNOWN);
 }
 
-Lexeme::Lexeme(Lexeme::Kind K, const std::string &IdentifierStr, llvm::SMLoc Position) : K(K), IdentifierStr(IdentifierStr), Loc(Position) {
+Lexeme::Lexeme(Lexeme::Kind K, const std::string &IdentifierStr, llvm::SMLoc Position) :
+        K(K), IdentifierStr(IdentifierStr), Loc(Position), Char(0), NumericValue(0) {
     assert(K == Kind::IDENT);
 }
 
-Lexeme::Lexeme(Lexeme::Kind K, long NumericValue, llvm::SMLoc Position) : K(K), NumericValue(NumericValue), Loc(Position) {
+Lexeme::Lexeme(Lexeme::Kind K, long NumericValue, llvm::SMLoc Position) :
+        K(K), NumericValue(NumericValue), Loc(Position), Char(0) {
     assert(K == Kind::NUMBER);
 }
 
