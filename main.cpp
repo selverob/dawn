@@ -21,9 +21,11 @@ int main() {
 //            L = Lex.getLexeme();
 //        }
     ast::Parser Parser(Sources, std::move(Lex));
-    auto expr = Parser.parseStmt();
+    auto Program = Parser.parse();
+    if (!Program)
+        return 1;
     ast::Printer Printer(Out);
-    expr->accept(Printer);
+    Program->accept(Printer);
     Out << '\n';
     Out.flush();
     return 0;

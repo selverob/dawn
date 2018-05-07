@@ -14,6 +14,10 @@
 #include "stmt/ForStmt.h"
 #include "stmt/IfStmt.h"
 #include "stmt/WhileStmt.h"
+#include "decl/Consts.h"
+#include "decl/Vars.h"
+#include "decl/Function.h"
+#include "decl/Program.h"
 
 ast::Printer::Printer(llvm::raw_ostream &Out): Out(Out), Indendation(0) {}
 
@@ -139,6 +143,64 @@ void ast::Printer::visit(ast::WhileStmt &E) {
     Out << " do\n";
     Indendation++;
     printIndentation(); E.Body->accept(*this);
+    Indendation--;
+}
+
+void ast::Printer::visit(ast::Consts &E) {
+    if (E.Constants.size() == 0)
+        return;
+    Out << "const\n";
+    Indendation++;
+    for (const auto &C : E.Constants) {
+        printIndentation(); Out << C.first << " = " << C.second << ";\n";
+    }
+    Indendation--;
+}
+
+void ast::Printer::visit(ast::Function &E) {
+    Out << "function" << E.Name << "(";
+    for (size_t i = 0; i < E.Parameters->Variables.size(); i++) {
+        Out << E.Parameters->Variables[i].first
+            << ": "
+            << E.Parameters->Variables[i].second;
+        if (i < E.Parameters->Variables.size() - 1)
+            Out << ", ";
+    }
+    Out << ")";
+    if (E.ReturnType != "void")
+        Out << ": " << E.ReturnType;
+    Out << "\n";
+    E.Variables->accept(*this);
+    Indendation++;
+    printIndentation();
+    E.Body->accept(*this);
+    Indendation--;
+    printIndentation(); Out << ";\n";
+}
+
+void ast::Printer::visit(ast::Program &E) {
+    Out << "program " << E.Name << "\n";
+    E.Constants->accept(*this);
+    Out << '\n';
+    E.Variables->accept(*this);
+    Out << '\n';
+    for (auto &F : E.Functions) {
+        F->accept(*this);
+        Out << '\n';
+    }
+    Out << '\n';
+    E.Body->accept(*this);
+    Out << '.';
+}
+
+void ast::Printer::visit(ast::Vars &E) {
+    if (E.Variables.size() == 0)
+        return;
+    Out << "var\n";
+    Indendation++;
+    for (const auto &V : E.Variables) {
+        printIndentation(); Out << V.first << ": " << V.second << ";\n";
+    }
     Indendation--;
 }
 

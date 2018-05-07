@@ -43,6 +43,14 @@ namespace ast {
         void visit(IfStmt &E) override;
 
         void visit(WhileStmt &E) override;
+
+        void visit(Consts &E) override;
+
+        void visit(Function &E) override;
+
+        void visit(Program &E) override;
+
+        void visit(Vars &E) override;
     };
 }
 

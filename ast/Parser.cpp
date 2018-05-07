@@ -264,3 +264,148 @@ std::unique_ptr<ast::Stmt> ast::Parser::parseIdentifierStmt() {
     return LogError(Id.Loc, "Naked identifier encountered instead of a statement");
 }
 
+std::unique_ptr<ast::Consts> ast::Parser::parseConsts() {
+    assert(NextLexeme.K == Lexeme::Kind::CONST);
+    auto C = std::make_unique<Consts>(getLexeme().Loc);
+    if (NextLexeme.K != Lexeme::Kind::IDENT)
+        return LogError(NextLexeme.Loc, "Expecting a constant name in constant declaration");
+    while (NextLexeme.K == Lexeme::Kind::IDENT) {
+        auto Name = getLexeme().IdentifierStr;
+        if (NextLexeme.K != Lexeme::Kind::EQ)
+            return LogError(NextLexeme.Loc, "Expecting a '=' in constant declaration");
+        getLexeme();
+        if (NextLexeme.K != Lexeme::Kind::NUMBER)
+            return LogError(NextLexeme.Loc, "Expecting a number literal in constant declaration");
+        C->addConst(Name, NextLexeme.NumericValue);
+        getLexeme();
+        if (NextLexeme.Char != ';')
+            return LogError(NextLexeme.Loc, "Expecting a ';' in constant declaration");
+        getLexeme();
+    }
+    return std::move(C);
+}
+
+std::unique_ptr<ast::Function> ast::Parser::parseFunction() {
+    assert(NextLexeme.K == Lexeme::Kind::FUNCTION);
+    auto StartingLoc = getLexeme().Loc;
+    if (NextLexeme.K != Lexeme::Kind::IDENT)
+        return LogError(NextLexeme.Loc, "Expecting a function name in function declaration");
+    auto Name = getLexeme().IdentifierStr;
+    if (NextLexeme.K != Lexeme::Kind::LPAR)
+        return LogError(NextLexeme.Loc, "Expecting a '(' in function declaration");
+    auto Params = parseFunctionParameters();
+    if (!Params)
+        return nullptr;
+    std::string Type = std::string("void");
+    if (NextLexeme.Char == ':') {
+        getLexeme();
+        if (NextLexeme.K != Lexeme::Kind::IDENT)
+            return LogError(NextLexeme.Loc, "Function declaration missing a return type");
+        Type = getLexeme().IdentifierStr;
+    }
+    auto Variables = std::make_unique<Vars>(NextLexeme.Loc);
+    if (NextLexeme.K == Lexeme::Kind::VAR) {
+        Variables = parseVars();
+    }
+    if (!Variables)
+        return nullptr;
+    auto Body = parseStmt();
+    if (!Body)
+        return nullptr;
+    if (NextLexeme.Char != ';')
+        return LogError(NextLexeme.Loc, "Function declarations should end with semicolons");
+    getLexeme();
+    return std::make_unique<ast::Function>(StartingLoc, Name, Type, std::move(Params), std::move(Variables), std::move(Body));
+}
+
+std::unique_ptr<ast::Vars> ast::Parser::parseFunctionParameters() {
+    auto V = std::make_unique<Vars>(NextLexeme.Loc);
+    while (true) {
+        if (NextLexeme.K != Lexeme::Kind::IDENT)
+            return LogError(NextLexeme.Loc, "Expecting parameter name in function declaration");
+        auto Name = getLexeme().IdentifierStr;
+        if (NextLexeme.Char != ':')
+            return LogError(NextLexeme.Loc, "Expecting ':' in function declaration");
+        getLexeme();
+        if (NextLexeme.K != Lexeme::Kind::IDENT)
+            return LogError(NextLexeme.Loc, "Expecting type name in function declaration");
+        auto Type = getLexeme().IdentifierStr;
+        V->addVar(Name, Type);
+        if (NextLexeme.K == Lexeme::Kind::RPAR)
+            return V;
+        else if (NextLexeme.Char != ',')
+            return LogError(NextLexeme.Loc, "Expecting parameter separator in function declaration");
+    }
+}
+
+std::unique_ptr<ast::Vars> ast::Parser::parseVars() {
+    assert(NextLexeme.K == Lexeme::Kind::VAR);
+    auto V = std::make_unique<Vars>(getLexeme().Loc);
+    if (NextLexeme.K != Lexeme::Kind::IDENT)
+        return LogError(NextLexeme.Loc, "Expecting a variable name in variable declaration");
+    while (NextLexeme.K == Lexeme::Kind::IDENT) {
+        auto Names = std::vector<std::string> { getLexeme().IdentifierStr };
+        while (NextLexeme.K == Lexeme::Kind::IDENT)
+            Names.push_back(getLexeme().IdentifierStr);
+        if (NextLexeme.Char != ':')
+            return LogError(NextLexeme.Loc, "Expecting a ':' in variable declaration");
+        getLexeme();
+        if (NextLexeme.K != Lexeme::Kind::IDENT)
+            return LogError(NextLexeme.Loc, "Expecting a type name in variable declaration");
+        for (const auto &Name : Names)
+            V->addVar(Name, NextLexeme.IdentifierStr);
+        getLexeme();
+        if (NextLexeme.Char != ';')
+            return LogError(NextLexeme.Loc, "Expecting a ';' in variable declaration");
+        getLexeme();
+    }
+    return std::move(V);
+}
+
+std::unique_ptr<ast::Program> ast::Parser::parse() {
+    if (NextLexeme.K != Lexeme::Kind::PROGRAM)
+        return LogError(NextLexeme.Loc, "Programs must begin with a 'program' statement");
+    auto StartingLoc = getLexeme().Loc;
+    if (NextLexeme.K != Lexeme::Kind::IDENT)
+        return LogError(NextLexeme.Loc, "Programs must begin with the program's name");
+    auto Program = std::make_unique<ast::Program>(StartingLoc, getLexeme().IdentifierStr);
+
+    if (NextLexeme.Char != ';')
+        return LogError(NextLexeme.Loc, "Program identification should be terminated with a semicolon");
+    getLexeme();
+
+    if (NextLexeme.K == Lexeme::Kind::CONST) {
+        auto C = parseConsts();
+        if (!C)
+            return nullptr;
+        Program->addConsts(std::move(C));
+    } else {
+        Program->addConsts(std::make_unique<Consts>(NextLexeme.Loc));
+    }
+
+    if (NextLexeme.K == Lexeme::Kind::VAR) {
+        auto V = parseVars();
+        if (!V)
+            return nullptr;
+        Program->addVariables(std::move(V));
+    } else {
+        Program->addVariables(std::make_unique<Vars>(NextLexeme.Loc));
+    }
+
+    while (NextLexeme.K == Lexeme::Kind::FUNCTION) {
+        auto F = parseFunction();
+        if (!F)
+            return nullptr;
+        Program->addFunction(std::move(F));
+    }
+
+    auto Body = parseStmt();
+    if (!Body)
+        return nullptr;
+    Program->addBody(std::move(Body));
+
+    if (NextLexeme.Char != '.')
+        return LogError(NextLexeme.Loc, "Program must be terminated with a '.'");
+    getLexeme();
+    return Program;
+}

@@ -1,10 +1,10 @@
-program = 'program' program-ident [const-decl] [var-decl] {function} statement '.'
+program = 'program' program-ident ';' [const-decl] [var-decl] {function} statement '.'
 
 const-decl = 'const' var-ident '=' literal ';' {var-ident '=' literal ';'}
 var-decl = 'var' var-ident {',' var-ident} ':' type-name ';' {var-ident {',' var-ident} ':' type-name ';'}
 
 function = function-decl [var-decl] statement ';'
-function-decl = 'function' function-ident '(' [var-ident ':' type-name { ',' var-ident ':' type-name}] ')' [':', type-name] ';'
+function-decl = 'function' function-ident '(' [var-ident ':' type-name { ',' var-ident ':' type-name}] ')' [':', type-name]
 
 statement =
     var-ident ':=' expression   |

@@ -19,6 +19,10 @@ namespace ast {
     class ForStmt;
     class IfStmt;
     class WhileStmt;
+    class Consts;
+    class Function;
+    class Program;
+    class Vars;
 
     class Visitor {
     public:
@@ -34,6 +38,10 @@ namespace ast {
         virtual void visit(ForStmt &E) = 0;
         virtual void visit(IfStmt &E) = 0;
         virtual void visit(WhileStmt &E) = 0;
+        virtual void visit(Consts &E) = 0;
+        virtual void visit(Function &E) = 0;
+        virtual void visit(Program &E) = 0;
+        virtual void visit(Vars &E) = 0;
     };
 }
 
