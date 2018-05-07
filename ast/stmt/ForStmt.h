@@ -19,16 +19,16 @@ namespace ast {
         std::unique_ptr<Expr> Begin, End;
         std::unique_ptr<Stmt> Body;
 
-        ForStmt(std::string Var, Lexeme::Kind Operator, std::unique_ptr<Expr> Begin,
+        ForStmt(llvm::SMLoc Loc, std::string Var, Lexeme::Kind Operator, std::unique_ptr<Expr> Begin,
                 std::unique_ptr<Expr> End, std::unique_ptr<Stmt> Body) :
-                Var(std::move(Var)), Operator(Operator), Begin(std::move(Begin)), End(std::move(End)), Body(std::move(Body)) {}
+                Stmt(Loc), Var(std::move(Var)), Operator(Operator), Begin(std::move(Begin)), End(std::move(End)),
+                Body(std::move(Body)) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);
         }
     };
 }
-
 
 
 #endif //DAWN_FORSTMT_H

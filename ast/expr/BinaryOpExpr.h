@@ -14,8 +14,8 @@
 namespace ast {
     class BinaryOpExpr : public Expr {
     public:
-        BinaryOpExpr(Lexeme::Kind Op, std::unique_ptr<Expr> L, std::unique_ptr<Expr> R) :
-                Op(Op), L(std::move(L)), R(std::move(R)) {}
+        BinaryOpExpr(llvm::SMLoc Loc, Lexeme::Kind Op, std::unique_ptr<Expr> L, std::unique_ptr<Expr> R) :
+                Expr(Loc), Op(Op), L(std::move(L)), R(std::move(R)) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);

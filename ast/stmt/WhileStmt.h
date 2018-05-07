@@ -16,7 +16,8 @@ namespace ast {
         std::unique_ptr<Expr> Condition;
         std::unique_ptr<Stmt> Body;
 
-        WhileStmt(std::unique_ptr<Expr> Condition, std::unique_ptr<Stmt> Body) : Condition(std::move(Condition)), Body(std::move(Body)) {}
+        WhileStmt(llvm::SMLoc Loc, std::unique_ptr<Expr> Condition, std::unique_ptr<Stmt> Body) : Stmt(Loc),
+            Condition(std::move(Condition)), Body(std::move(Body)) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);

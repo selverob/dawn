@@ -6,11 +6,9 @@
 #define DAWN_STATEMENT_H
 
 namespace ast {
-    class Visitor;
-
-    class Stmt {
+    class Stmt : public Node {
     public:
-        virtual void accept(Visitor &V) = 0;
+        Stmt(llvm::SMLoc Loc) : Node(Loc) {}
     };
 }
 

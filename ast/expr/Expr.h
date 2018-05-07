@@ -5,12 +5,12 @@
 #ifndef DAWN_EXPR_H
 #define DAWN_EXPR_H
 
-namespace ast {
-    class Visitor;
+#include "../Node.h"
 
-    class Expr {
+namespace ast {
+    class Expr : public Node {
     public:
-        virtual void accept(Visitor &V) = 0;
+        Expr(llvm::SMLoc Loc): Node(Loc) {}
     };
 }
 

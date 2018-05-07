@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 
+#include "llvm/Support/SMLoc.h"
+
 struct Lexeme {
     enum struct Kind {
         UNKNOWN,
@@ -49,14 +51,15 @@ struct Lexeme {
     };
 
     Kind K;
+    llvm::SMLoc Loc;
     char Char;
     std::string IdentifierStr;
     long NumericValue;
 
-    explicit Lexeme(Kind K);
-    Lexeme(Kind K, char Char);
-    Lexeme(Kind K, const std::string &IdentifierStr);
-    Lexeme(Kind K, long NumericValue);
+    explicit Lexeme(Kind K, llvm::SMLoc Position);
+    Lexeme(Kind K, char Char, llvm::SMLoc Position);
+    Lexeme(Kind K, const std::string &IdentifierStr, llvm::SMLoc Position);
+    Lexeme(Kind K, long NumericValue, llvm::SMLoc Position);
 };
 
 std::ostream &operator<< (std::ostream& Stream, const Lexeme::Kind &K);

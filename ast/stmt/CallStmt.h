@@ -16,7 +16,7 @@ namespace ast {
     public:
         std::unique_ptr<Expr> Callee;
 
-        CallStmt(std::unique_ptr<Expr> Callee) : Callee(std::move(Callee)) {}
+        CallStmt(llvm::SMLoc Loc, std::unique_ptr<Expr> Callee) : Stmt(Loc), Callee(std::move(Callee)) {}
 
         virtual void accept(Visitor &V) {
             V.visit(*this);

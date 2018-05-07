@@ -7,21 +7,23 @@
 
 #include <istream>
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
 #include "Lexeme.h"
 
 class Lexer {
 public:
-    Lexer(llvm::MemoryBufferRef Input);
-    Lexer(char *Start, char *End);
+    Lexer(llvm::SourceMgr &Sources, unsigned FileIdx);
     Lexer(const Lexer &L) = delete;
     Lexer(Lexer&&);
     Lexeme getLexeme();
 
 private:
+    llvm::SourceMgr &Sources;
     char *Current, *End;
     char LastChar;
 
     void readChar();
+    llvm::SMLoc getLoc();
 
     Lexeme readIdentifier();
     Lexeme readNumber(int base);

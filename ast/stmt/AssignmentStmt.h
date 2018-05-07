@@ -17,7 +17,8 @@ namespace ast {
         std::string Var;
         std::unique_ptr<Expr> Value;
 
-        AssignmentStmt(std::string Var, std::unique_ptr<Expr> Value) : Var(std::move(Var)), Value(std::move(Value)) {}
+        AssignmentStmt(llvm::SMLoc Loc, std::string Var, std::unique_ptr<Expr> Value) : Stmt(Loc), Var(std::move(Var)),
+                                                                                        Value(std::move(Value)) {}
 
         virtual void accept(Visitor &V) {
             V.visit(*this);

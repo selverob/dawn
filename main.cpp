@@ -12,15 +12,15 @@ int main() {
     llvm::SourceMgr Sources;
     std::string FullPath;
     Sources.setIncludeDirs({"/home/selvek/FIT/PJP/dawn"});
-    auto Idx = Sources.AddIncludeFile("code.dawn", llvm::SMLoc(), FullPath);
+    Sources.AddIncludeFile("code.dawn", llvm::SMLoc(), FullPath);
     llvm::raw_os_ostream Out(std::cout);
-    Lexer Lex(Sources.getMemoryBuffer(Idx)->getMemBufferRef());
+    Lexer Lex(Sources, Sources.getMainFileID());
 //        Lexeme L = Lex.getLexeme();
 //        while (L.K != Lexeme::Kind::ENDOFFILE) {
 //            std::cout << L << " ";
 //            L = Lex.getLexeme();
 //        }
-    ast::Parser Parser(std::move(Lex));
+    ast::Parser Parser(Sources, std::move(Lex));
     auto expr = Parser.parseStmt();
     ast::Printer Printer(Out);
     expr->accept(Printer);

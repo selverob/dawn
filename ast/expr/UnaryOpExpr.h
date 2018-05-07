@@ -14,8 +14,8 @@
 namespace ast {
     class UnaryOpExpr : public Expr {
     public:
-        UnaryOpExpr(Lexeme::Kind Op, std::unique_ptr<Expr> Expression) :
-                Op(Op), Expression(std::move(Expression)) {}
+        UnaryOpExpr(llvm::SMLoc Loc, Lexeme::Kind Op, std::unique_ptr<Expr> Expression) :
+                Expr(Loc), Op(Op), Expression(std::move(Expression)) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);

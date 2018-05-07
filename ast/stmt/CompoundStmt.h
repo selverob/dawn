@@ -16,7 +16,7 @@ namespace ast {
     public:
         std::vector<std::unique_ptr<Stmt>> Body;
 
-        CompoundStmt() = default;
+        CompoundStmt(llvm::SMLoc Loc) : Stmt(Loc) {}
 
         void addStmt(std::unique_ptr<Stmt> S) {
             Body.push_back(std::move(S));

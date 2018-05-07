@@ -13,7 +13,7 @@
 namespace ast {
     class VarExpr : public Expr {
     public:
-        VarExpr(const std::string &VarName): VarName(VarName) {}
+        VarExpr(llvm::SMLoc Loc, const std::string &VarName): Expr(Loc), VarName(VarName) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);

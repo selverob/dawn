@@ -10,6 +10,9 @@
 
 namespace ast {
     class ExitStmt : public Stmt {
+    public:
+        ExitStmt(llvm::SMLoc Loc) : Stmt(Loc) {}
+
         virtual void accept(Visitor &V) {
             V.visit(*this);
         }

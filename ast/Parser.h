@@ -18,6 +18,8 @@ namespace ast {
         Lexer L;
         Lexeme NextLexeme;
 
+        llvm::SourceMgr &Sources;
+
         llvm::DenseMap<int, unsigned> Precedences;
         unsigned getPrecedence(Lexeme::Kind k);
 
@@ -36,13 +38,13 @@ namespace ast {
         std::unique_ptr<Expr> parseParenExpr();
         Lexeme getLexeme();
 
-        nullptr_t LogError(llvm::StringRef problem) const {
-            llvm::errs() << problem;
+        nullptr_t LogError(llvm::SMLoc Loc, llvm::StringRef Err) const {
+            Sources.PrintMessage(Loc, llvm::SourceMgr::DiagKind::DK_Error, Err);
             return nullptr;
         }
     public:
 
-        explicit Parser(Lexer L);
+        Parser(llvm::SourceMgr &Sources, Lexer L);
         std::unique_ptr<Expr> parseExpr();
         std::unique_ptr<Stmt> parseStmt();
     };

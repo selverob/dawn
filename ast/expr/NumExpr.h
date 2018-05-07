@@ -11,7 +11,7 @@
 namespace ast {
     class NumExpr : public Expr {
     public:
-        NumExpr(long Value) : Value(Value) {}
+        NumExpr(llvm::SMLoc Loc, long Value) : Expr(Loc), Value(Value) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);

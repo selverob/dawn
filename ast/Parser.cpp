@@ -16,7 +16,8 @@
 #include "stmt/IfStmt.h"
 #include "stmt/WhileStmt.h"
 
-ast::Parser::Parser(Lexer Lexer): L(std::move(Lexer)), NextLexeme(L.getLexeme()), Precedences(11) {
+ast::Parser::Parser(llvm::SourceMgr &Sources, Lexer Lexer) : Sources(Sources), L(std::move(Lexer)),
+                                                             NextLexeme(L.getLexeme()), Precedences(11) {
     Precedences[static_cast<int>(Lexeme::Kind::AND)] = 10;
     Precedences[static_cast<int>(Lexeme::Kind::OR)] = 10;
     Precedences[static_cast<int>(Lexeme::Kind::EQ)] = 20;
@@ -41,14 +42,14 @@ Lexeme ast::Parser::getLexeme() {
 std::unique_ptr<ast::Expr> ast::Parser::parseNumberExpr() {
     auto N = getLexeme();
     assert(N.K == Lexeme::Kind::NUMBER);
-    return std::make_unique<ast::NumExpr>(N.NumericValue);
+    return std::make_unique<ast::NumExpr>(N.Loc, N.NumericValue);
 }
 
 std::unique_ptr<ast::Expr> ast::Parser::parseIdentifierExpr() {
     auto Ident = getLexeme();
     assert(Ident.K == Lexeme::Kind::IDENT);
     if (NextLexeme.K != Lexeme::Kind::LPAR) {
-        return std::make_unique<ast::VarExpr>(Ident.IdentifierStr);
+        return std::make_unique<ast::VarExpr>(Ident.Loc, Ident.IdentifierStr);
     }
     return parseFunctionCall(Ident);
 }
@@ -57,16 +58,15 @@ std::unique_ptr<ast::Expr> ast::Parser::parseUnaryOpExpr() {
     auto Op = getLexeme();
     assert(Op.K == Lexeme::Kind::MINUS || Op.K == Lexeme::Kind::NOT);
     auto E = parseExpr();
-    return std::make_unique<ast::UnaryOpExpr>(Op.K, std::move(E));
+    return std::make_unique<ast::UnaryOpExpr>(Op.Loc, Op.K, std::move(E));
 }
 
 std::unique_ptr<ast::Expr> ast::Parser::parseParenExpr() {
     auto L = getLexeme();
     assert(L.K == Lexeme::Kind::LPAR);
     auto E = parseExpr();
-    if (NextLexeme.K != Lexeme::Kind::RPAR) {
-        return LogError("Unclosed parenthesised expression");
-    }
+    if (NextLexeme.K != Lexeme::Kind::RPAR)
+        return LogError(NextLexeme.Loc, "Parenthesised expression was not closed");
     getLexeme();
     return E;
 }
@@ -83,7 +83,7 @@ std::unique_ptr<ast::Expr> ast::Parser::parsePrimaryExpr() {
         case Lexeme::Kind::LPAR:
             return parseParenExpr();
         default:
-            return LogError("Primary expression beginning with unexpected token");
+            return LogError(NextLexeme.Loc, "Primary expression beginning with unexpected token");
     }
 }
 
@@ -114,7 +114,7 @@ std::unique_ptr<ast::Expr> ast::Parser::parseBinExprRHS(unsigned Precedence, std
                 return nullptr;
         }
 
-        LHS = std::make_unique<ast::BinaryOpExpr>(Op, std::move(LHS), std::move(RHS));
+        LHS = std::make_unique<ast::BinaryOpExpr>(LHS->Loc, Op, std::move(LHS), std::move(RHS));
     }
 }
 
@@ -126,7 +126,7 @@ unsigned ast::Parser::getPrecedence(Lexeme::Kind K) {
 }
 
 std::unique_ptr<ast::Expr> ast::Parser::parseFunctionCall(const Lexeme &Ident) {
-    auto Call = std::make_unique<ast::CallExpr>(Ident.IdentifierStr);
+    auto Call = std::make_unique<ast::CallExpr>(Ident.Loc, Ident.IdentifierStr);
     getLexeme();
     while (true) {
         auto Arg = parseExpr();
@@ -134,7 +134,7 @@ std::unique_ptr<ast::Expr> ast::Parser::parseFunctionCall(const Lexeme &Ident) {
             return nullptr;
         Call->addArgument(std::move(Arg));
         if (!(NextLexeme.Char == ',' || NextLexeme.K == Lexeme::Kind::RPAR)) {
-            return LogError("Expected function argument separator (,) or list end ())");
+            return LogError(NextLexeme.Loc, "Expected function argument separator (,) or list end ())");
         }
         if (getLexeme().K == Lexeme::Kind::RPAR) {
             break;
@@ -157,19 +157,20 @@ std::unique_ptr<ast::Stmt> ast::Parser::parseStmt() {
             return parseCompoundStmt();
         case Lexeme::Kind::EXIT:
             getLexeme();
-            return std::make_unique<ExitStmt>();
+            return std::make_unique<ExitStmt>(NextLexeme.Loc);
     }
 }
 
 std::unique_ptr<ast::Stmt> ast::Parser::parseIfStmt() {
     auto KW = getLexeme();
+    auto StartingLoc = KW.Loc;
     assert(KW.K == Lexeme::Kind::IF);
     auto Condition = parseExpr();
     if (Condition == nullptr)
         return nullptr;
     KW = getLexeme();
     if (KW.K != Lexeme::Kind::THEN) {
-        return LogError("Expected 'then'");
+        return LogError(KW.Loc, "Expected 'then'");
     }
     auto Body = parseStmt();
     if (Body == nullptr)
@@ -182,64 +183,64 @@ std::unique_ptr<ast::Stmt> ast::Parser::parseIfStmt() {
             return nullptr;
     }
     return std::make_unique<ast::IfStmt>(
-            std::move(Condition), std::move(Body), std::move(Else));
+            StartingLoc, std::move(Condition), std::move(Body), std::move(Else));
 }
 
 std::unique_ptr<ast::Stmt> ast::Parser::parseWhileStmt() {
     auto KW = getLexeme();
+    auto StartingLoc = KW.Loc;
     assert(KW.K == Lexeme::Kind::WHILE);
     auto Condition = parseExpr();
     if (Condition == nullptr)
         return nullptr;
     KW = getLexeme();
     if (KW.K != Lexeme::Kind::DO)
-        return LogError("Expected a 'do'");
+        return LogError(KW.Loc, "Expected a 'do'");
     auto Body = parseStmt();
     if (Body == nullptr)
         return nullptr;
-    return std::make_unique<WhileStmt>(std::move(Condition), std::move(Body));
+    return std::make_unique<WhileStmt>(StartingLoc, std::move(Condition), std::move(Body));
 }
 
 std::unique_ptr<ast::Stmt> ast::Parser::parseForStmt() {
     auto KW = getLexeme();
+    auto StartingLoc = KW.Loc;
     assert(KW.K == Lexeme::Kind::FOR);
     auto VarName = getLexeme();
     if (VarName.K != Lexeme::Kind::IDENT)
-        return LogError("Expected variable name in for");
+        return LogError(VarName.Loc, "Expected variable name in for");
     KW = getLexeme();
     if (KW.K != Lexeme::Kind::ASSIGN)
-        return LogError("Expected assignment operator in for");
+        return LogError(KW.Loc, "Expected assignment operator in for");
     auto Lower = parseExpr();
     if (Lower == nullptr)
         return nullptr;
     auto Operator = getLexeme();
     if (Operator.K != Lexeme::Kind::TO && Operator.K != Lexeme::Kind::DOWNTO)
-        return LogError("Unknown operator in for, expecting 'downto' or 'to'");
+        return LogError(Operator.Loc, "Unknown operator in for, expecting 'downto' or 'to'");
     auto Upper = parseExpr();
     if (Upper == nullptr)
         return nullptr;
     KW = getLexeme();
     if (KW.K != Lexeme::Kind::DO)
-        return LogError("Expecting a 'do' after for statement conditions");
+        return LogError(KW.Loc, "Expecting a 'do' after for statement conditions");
     auto Body = parseStmt();
     if (Body == nullptr)
         return nullptr;
-    return std::make_unique<ForStmt>(
-            VarName.IdentifierStr, Operator.K, std::move(Lower), std::move(Upper), std::move(Body));
+    return std::make_unique<ForStmt>(StartingLoc, VarName.IdentifierStr,
+                                     Operator.K, std::move(Lower), std::move(Upper), std::move(Body));
 }
 
 std::unique_ptr<ast::Stmt> ast::Parser::parseCompoundStmt() {
     assert(NextLexeme.K == Lexeme::Kind::BEGIN);
-    getLexeme();
-    auto C = std::make_unique<CompoundStmt>();
+    auto C = std::make_unique<CompoundStmt>(getLexeme().Loc);
     while (NextLexeme.K != Lexeme::Kind::END) {
         C->addStmt(parseStmt());
         if (!C->Body.back()) {
             return nullptr;
         }
         if (NextLexeme.Char != ';') {
-            std::cout << NextLexeme << std::endl;
-            return LogError("Missing semicolon in compound statement");
+            return LogError(NextLexeme.Loc, "Missing semicolon in compound statement");
         }
         getLexeme();
     }
@@ -255,11 +256,11 @@ std::unique_ptr<ast::Stmt> ast::Parser::parseIdentifierStmt() {
         auto Val = parseExpr();
         if (Val == nullptr)
             return nullptr;
-        return std::make_unique<AssignmentStmt>(Id.IdentifierStr, std::move(Val));
+        return std::make_unique<AssignmentStmt>(Id.Loc, Id.IdentifierStr, std::move(Val));
     }
     if (NextLexeme.K == Lexeme::Kind::LPAR) {
-        return std::make_unique<CallStmt>(parseFunctionCall(Id));
+        return std::make_unique<CallStmt>(Id.Loc, parseFunctionCall(Id));
     }
-    return LogError("Naked identifier encountered instead of a statement");
+    return LogError(Id.Loc, "Naked identifier encountered instead of a statement");
 }
 

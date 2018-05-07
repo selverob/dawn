@@ -15,8 +15,8 @@
 namespace ast {
     class CallExpr : public Expr {
     public:
-        CallExpr(std::string FunctionName) :
-                FunctionName(std::move(FunctionName)) {}
+        CallExpr(llvm::SMLoc Loc, std::string FunctionName) :
+                Expr(Loc), FunctionName(std::move(FunctionName)) {}
 
         void addArgument(std::unique_ptr<Expr> Arg) {
             Args.push_back(std::move(Arg));

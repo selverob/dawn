@@ -17,8 +17,9 @@ namespace ast {
         std::unique_ptr<Stmt> IfBody;
         std::unique_ptr<Stmt> ElseBody;
 
-        IfStmt(std::unique_ptr<Expr> Condition, std::unique_ptr<Stmt> IfBody, std::unique_ptr<Stmt> ElseBody) :
-                Condition(std::move(Condition)), IfBody(std::move(IfBody)), ElseBody(std::move(ElseBody)) {}
+        IfStmt(llvm::SMLoc Loc, std::unique_ptr<Expr> Condition, std::unique_ptr<Stmt> IfBody,
+               std::unique_ptr<Stmt> ElseBody) :
+                Stmt(Loc), Condition(std::move(Condition)), IfBody(std::move(IfBody)), ElseBody(std::move(ElseBody)) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);

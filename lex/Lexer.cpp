@@ -4,6 +4,7 @@
 
 #include <set>
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/SMLoc.h"
 #include "Lexer.h"
 
 const std::set<char> OctalChars {'0', '1', '2', '3', '4', '5', '6', '7'};
@@ -11,19 +12,27 @@ const std::set<char> DecimalChars {'0', '1', '2', '3', '4', '5', '6', '7', '8', 
 const std::set<char> HexadecimalChars {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                                        'A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f'};
 
-Lexer::Lexer(llvm::MemoryBufferRef Input) :
-        Current((char *) Input.getBufferStart()),
-        End((char *) Input.getBufferEnd()),
-        LastChar(' ') {}
+Lexer::Lexer(llvm::SourceMgr &SrcMgr, unsigned FileIdx): Sources(SrcMgr) {
+    auto Buf = Sources.getMemoryBuffer(FileIdx);
+    Current = (char *) Buf->getBufferStart();
+    End = (char *) Buf->getBufferEnd();
+    LastChar = ' ';
+}
 
-Lexer::Lexer(char *Start, char *End) :
-        Current(Start),
-        End(End),
-        LastChar(' ') {}
-
-Lexer::Lexer(Lexer &&Other) : Current(Other.Current), End(Other.End), LastChar(Other.LastChar) {
+Lexer::Lexer(Lexer &&Other):
+        Sources(Other.Sources), Current(Other.Current), End(Other.End), LastChar(Other.LastChar) {
+    Other.LastChar = ' ';
     Other.Current = nullptr;
     Other.End = nullptr;
+}
+
+
+void Lexer::readChar() {
+    if (Current == End) {
+        LastChar = EOF;
+    } else {
+        LastChar = *(Current++);
+    }
 }
 
 Lexeme Lexer::getLexeme() {
@@ -49,22 +58,13 @@ Lexeme Lexer::getLexeme() {
     }
 
     if (LastChar == EOF) {
-        return Lexeme(Lexeme::Kind::ENDOFFILE);
+        return Lexeme(Lexeme::Kind::ENDOFFILE, llvm::SMLoc::getFromPointer(End));
     }
     return readOperator();
 }
 
-
-
-void Lexer::readChar() {
-    if (Current == End) {
-        LastChar = EOF;
-    } else {
-        LastChar = *(Current++);
-    }
-}
-
 Lexeme Lexer::readIdentifier() {
+    auto Loc = getLoc();
     std::string Identifier;
     Identifier = LastChar;
     readChar();
@@ -94,13 +94,14 @@ Lexeme Lexer::readIdentifier() {
             .Case("mod", Lexeme::Kind::MOD)
             .Default(Lexeme::Kind::IDENT);
     if (Kind == Lexeme::Kind::IDENT) {
-        return Lexeme(Kind, Identifier);
+        return Lexeme(Kind, Identifier, Loc);
     } else {
-        return Lexeme(Kind);
+        return Lexeme(Kind, Loc);
     }
 }
 
 Lexeme Lexer::readNumber(int base) {
+    auto Loc = getLoc();
     const std::set<char> *AcceptableChars;
     switch (base) {
         case 8:
@@ -120,63 +121,68 @@ Lexeme Lexer::readNumber(int base) {
         Num += LastChar;
         readChar();
     }
-    return Lexeme(Lexeme::Kind::NUMBER, std::stol(Num, nullptr, base));
+    return Lexeme(Lexeme::Kind::NUMBER, std::stol(Num, nullptr, base), Loc);
 }
 
 Lexeme Lexer::readOperator() {
-    Lexeme L(Lexeme::Kind::UNKNOWN, LastChar);
+    auto Loc = getLoc();
+    Lexeme L(Lexeme::Kind::UNKNOWN, LastChar, Loc);
     switch (LastChar) {
         case '=':
-            L = Lexeme(Lexeme::Kind::EQ);
+            L = Lexeme(Lexeme::Kind::EQ, Loc);
             break;
         case '+':
-            L = Lexeme(Lexeme::Kind::PLUS);
+            L = Lexeme(Lexeme::Kind::PLUS, Loc);
             break;
         case '-':
-            L = Lexeme(Lexeme::Kind::MINUS);
+            L = Lexeme(Lexeme::Kind::MINUS, Loc);
             break;
         case '*':
-            L = Lexeme(Lexeme::Kind::MUL);
+            L = Lexeme(Lexeme::Kind::MUL, Loc);
             break;
         case '/':
-            L = Lexeme(Lexeme::Kind::DIV);
+            L = Lexeme(Lexeme::Kind::DIV, Loc);
             break;
         case '(':
-            L = Lexeme(Lexeme::Kind::LPAR);
+            L = Lexeme(Lexeme::Kind::LPAR, Loc);
             break;
         case ')':
-            L = Lexeme(Lexeme::Kind::RPAR);
+            L = Lexeme(Lexeme::Kind::RPAR, Loc);
             break;
         case ':':
             readChar();
             if (LastChar == '=')
-                L = Lexeme(Lexeme::Kind::ASSIGN);
+                L = Lexeme(Lexeme::Kind::ASSIGN, getLoc());
             else
-                L = Lexeme(Lexeme::Kind::UNKNOWN, ':');
+                L = Lexeme(Lexeme::Kind::UNKNOWN, ':', getLoc());
             break;
         case '!':
             readChar();
             if (LastChar == '=')
-                L = Lexeme(Lexeme::Kind::NEQ);
+                L = Lexeme(Lexeme::Kind::NEQ, getLoc());
             else
-                L = Lexeme(Lexeme::Kind::UNKNOWN, '!');
+                L = Lexeme(Lexeme::Kind::UNKNOWN, getLoc());
             break;
         case '<':
             readChar();
             if (LastChar == '=')
-                L = Lexeme(Lexeme::Kind::LTE);
+                L = Lexeme(Lexeme::Kind::LTE, getLoc());
             else
-                L = Lexeme(Lexeme::Kind::LT);
+                L = Lexeme(Lexeme::Kind::LT, getLoc());
             break;
         case '>':
             readChar();
             if (LastChar == '=')
-                L = Lexeme(Lexeme::Kind::GTE);
+                L = Lexeme(Lexeme::Kind::GTE, getLoc());
             else
-                L = Lexeme(Lexeme::Kind::GT);
+                L = Lexeme(Lexeme::Kind::GT, getLoc());
             break;
     }
     readChar();
     return L;
+}
+
+llvm::SMLoc Lexer::getLoc() {
+    return llvm::SMLoc::getFromPointer(Current);
 }
 
