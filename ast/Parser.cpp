@@ -293,6 +293,7 @@ std::unique_ptr<ast::Function> ast::Parser::parseFunction() {
     auto Name = getLexeme().IdentifierStr;
     if (NextLexeme.K != Lexeme::Kind::LPAR)
         return LogError(NextLexeme.Loc, "Expecting a '(' in function declaration");
+    getLexeme();
     auto Params = parseFunctionParameters();
     if (!Params)
         return nullptr;
@@ -303,6 +304,9 @@ std::unique_ptr<ast::Function> ast::Parser::parseFunction() {
             return LogError(NextLexeme.Loc, "Function declaration missing a return type");
         Type = getLexeme().IdentifierStr;
     }
+    if (NextLexeme.Char != ';')
+        return LogError(NextLexeme.Loc, "Function declarations must end with a ';'");
+    getLexeme();
     auto Variables = std::make_unique<Vars>(NextLexeme.Loc);
     if (NextLexeme.K == Lexeme::Kind::VAR) {
         Variables = parseVars();
@@ -331,10 +335,12 @@ std::unique_ptr<ast::Vars> ast::Parser::parseFunctionParameters() {
             return LogError(NextLexeme.Loc, "Expecting type name in function declaration");
         auto Type = getLexeme().IdentifierStr;
         V->addVar(Name, Type);
-        if (NextLexeme.K == Lexeme::Kind::RPAR)
+        if (NextLexeme.K == Lexeme::Kind::RPAR) {
+            getLexeme();
             return V;
-        else if (NextLexeme.Char != ',')
+        } else if (NextLexeme.Char != ';')
             return LogError(NextLexeme.Loc, "Expecting parameter separator in function declaration");
+        getLexeme();
     }
 }
 

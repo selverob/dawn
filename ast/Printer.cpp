@@ -158,28 +158,26 @@ void ast::Printer::visit(ast::Consts &E) {
 }
 
 void ast::Printer::visit(ast::Function &E) {
-    Out << "function" << E.Name << "(";
+    Out << "function " << E.Name << "(";
     for (size_t i = 0; i < E.Parameters->Variables.size(); i++) {
         Out << E.Parameters->Variables[i].first
             << ": "
             << E.Parameters->Variables[i].second;
         if (i < E.Parameters->Variables.size() - 1)
-            Out << ", ";
+            Out << "; ";
     }
     Out << ")";
     if (E.ReturnType != "void")
         Out << ": " << E.ReturnType;
-    Out << "\n";
+    Out << ";\n";
     E.Variables->accept(*this);
-    Indendation++;
     printIndentation();
     E.Body->accept(*this);
-    Indendation--;
     printIndentation(); Out << ";\n";
 }
 
 void ast::Printer::visit(ast::Program &E) {
-    Out << "program " << E.Name << "\n";
+    Out << "program " << E.Name << ";\n";
     E.Constants->accept(*this);
     Out << '\n';
     E.Variables->accept(*this);

@@ -41,7 +41,7 @@ Lexeme Lexer::getLexeme() {
         readChar();
 
 
-    if (isalpha(LastChar)) {
+    if (isalnum(LastChar) || LastChar == '_') {
         return readIdentifier();
     }
 
@@ -68,7 +68,7 @@ Lexeme Lexer::readIdentifier() {
     std::string Identifier;
     Identifier = LastChar;
     readChar();
-    while (isalnum(LastChar)) {
+    while (isalnum(LastChar) || LastChar == '_') {
         Identifier += LastChar;
         readChar();
     }
