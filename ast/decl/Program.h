@@ -21,6 +21,7 @@ namespace ast {
         std::string Name;
         std::unique_ptr<Vars> Variables;
         std::unique_ptr<Consts> Constants;
+        std::vector<std::unique_ptr<Prototype>> Prototypes;
         std::vector<std::unique_ptr<Function>> Functions;
         std::unique_ptr<Stmt> Body;
 
@@ -33,6 +34,10 @@ namespace ast {
 
         void addConsts(std::unique_ptr<Consts> C) {
             Constants = std::move(C);
+        }
+
+        void addPrototype(std::unique_ptr<Prototype> P) {
+            Prototypes.push_back(std::move(P));
         }
 
         void addFunction(std::unique_ptr<Function> F) {

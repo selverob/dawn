@@ -157,19 +157,30 @@ void ast::Printer::visit(ast::Consts &E) {
     Indendation--;
 }
 
-void ast::Printer::visit(ast::Function &E) {
+void ast::Printer::printPrototype(ast::Prototype &E) {
     Out << "function " << E.Name << "(";
-    for (size_t i = 0; i < E.Parameters->Variables.size(); i++) {
-        Out << E.Parameters->Variables[i].first
+    for (size_t i = 0; i < E.Parameters.size(); i++) {
+        Out << E.Parameters[i].first
             << ": "
-            << E.Parameters->Variables[i].second;
-        if (i < E.Parameters->Variables.size() - 1)
+            << E.Parameters[i].second;
+        if (i < E.Parameters.size() - 1)
             Out << "; ";
     }
     Out << ")";
     if (E.ReturnType != "void")
         Out << ": " << E.ReturnType;
-    Out << ";\n";
+    Out << ';';
+}
+
+
+void ast::Printer::visit(ast::Prototype &E) {
+    printPrototype(E);
+    Out << " forward; \n";
+}
+
+void ast::Printer::visit(ast::Function &E) {
+    printPrototype(*E.Proto);
+    Out << "\n";
     E.Variables->accept(*this);
     printIndentation();
     E.Body->accept(*this);
@@ -182,11 +193,14 @@ void ast::Printer::visit(ast::Program &E) {
     Out << '\n';
     E.Variables->accept(*this);
     Out << '\n';
+    for (auto &P : E.Prototypes) {
+        P->accept(*this);
+        Out << '\n';
+    }
     for (auto &F : E.Functions) {
         F->accept(*this);
         Out << '\n';
     }
-    Out << '\n';
     E.Body->accept(*this);
     Out << '.';
 }

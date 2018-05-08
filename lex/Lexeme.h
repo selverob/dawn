@@ -48,6 +48,7 @@ struct Lexeme {
         ASSIGN,
         NUMBER,
         IDENT,
+        FORWARD,
     };
 
     Kind K;

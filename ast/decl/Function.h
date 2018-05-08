@@ -12,20 +12,17 @@
 #include "../Visitor.h"
 #include "../stmt/Stmt.h"
 #include "Vars.h"
+#include "Prototype.h"
 
 namespace ast {
     class Function : public Node {
     public:
-        std::string Name;
-        std::string ReturnType;
-        std::unique_ptr<Vars> Parameters;
+        std::unique_ptr<Prototype> Proto;
         std::unique_ptr<Vars> Variables;
         std::unique_ptr<Stmt> Body;
 
-        Function(llvm::SMLoc Loc, std::string Name, std::string ReturnType,
-                 std::unique_ptr<Vars> Parameters, std::unique_ptr<Vars> Variables, std::unique_ptr<Stmt> Body) :
-                Node(Loc), Name(std::move(Name)), ReturnType(std::move(ReturnType)), Parameters(std::move(Parameters)),
-                Variables(std::move(Variables)), Body(std::move(Body)) {}
+        Function(llvm::SMLoc Loc,std::unique_ptr<Prototype> Proto, std::unique_ptr<Vars> Variables, std::unique_ptr<Stmt> Body) :
+                Node(Loc), Proto(std::move(Proto)), Variables(std::move(Variables)), Body(std::move(Body)) {}
 
 
         void accept(Visitor &V) override {

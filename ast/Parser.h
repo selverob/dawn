@@ -25,8 +25,8 @@ namespace ast {
         unsigned getPrecedence(Lexeme::Kind k);
 
         std::unique_ptr<Consts> parseConsts();
-        std::unique_ptr<Function> parseFunction();
-        std::unique_ptr<Vars> parseFunctionParameters();
+        std::unique_ptr<Prototype> parsePrototype();
+        std::unique_ptr<Function> parseFunction(std::unique_ptr<ast::Prototype> Proto);
         std::unique_ptr<Vars> parseVars();
 
         std::unique_ptr<Stmt> parseIfStmt();

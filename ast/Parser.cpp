@@ -158,6 +158,8 @@ std::unique_ptr<ast::Stmt> ast::Parser::parseStmt() {
         case Lexeme::Kind::EXIT:
             getLexeme();
             return std::make_unique<ExitStmt>(NextLexeme.Loc);
+        default:
+            return LogError(NextLexeme.Loc, "Statement beginning with an invalid keyword");
     }
 }
 
@@ -285,7 +287,8 @@ std::unique_ptr<ast::Consts> ast::Parser::parseConsts() {
     return std::move(C);
 }
 
-std::unique_ptr<ast::Function> ast::Parser::parseFunction() {
+
+std::unique_ptr<ast::Prototype> ast::Parser::parsePrototype() {
     assert(NextLexeme.K == Lexeme::Kind::FUNCTION);
     auto StartingLoc = getLexeme().Loc;
     if (NextLexeme.K != Lexeme::Kind::IDENT)
@@ -294,19 +297,38 @@ std::unique_ptr<ast::Function> ast::Parser::parseFunction() {
     if (NextLexeme.K != Lexeme::Kind::LPAR)
         return LogError(NextLexeme.Loc, "Expecting a '(' in function declaration");
     getLexeme();
-    auto Params = parseFunctionParameters();
-    if (!Params)
-        return nullptr;
-    std::string Type = std::string("void");
+    auto Proto = std::make_unique<ast::Prototype>(StartingLoc, Name, "void");
+    while (NextLexeme.K != Lexeme::Kind::RPAR) {
+        if (NextLexeme.K != Lexeme::Kind::IDENT)
+            return LogError(NextLexeme.Loc, "Expecting parameter name in function declaration");
+        auto Name = getLexeme().IdentifierStr;
+        if (NextLexeme.Char != ':')
+            return LogError(NextLexeme.Loc, "Expecting ':' in function declaration");
+        getLexeme();
+        if (NextLexeme.K != Lexeme::Kind::IDENT)
+            return LogError(NextLexeme.Loc, "Expecting type name in function declaration");
+        auto Type = getLexeme().IdentifierStr;
+        Proto->addParameter(Name, Type);
+        if (NextLexeme.Char == ';')
+            getLexeme();
+        else if (NextLexeme.K != Lexeme::Kind::RPAR)
+            return LogError(NextLexeme.Loc, "Expecting parameter separator in function declaration");
+    }
+    getLexeme();
     if (NextLexeme.Char == ':') {
         getLexeme();
         if (NextLexeme.K != Lexeme::Kind::IDENT)
             return LogError(NextLexeme.Loc, "Function declaration missing a return type");
-        Type = getLexeme().IdentifierStr;
+        Proto->ReturnType = getLexeme().IdentifierStr;
     }
     if (NextLexeme.Char != ';')
         return LogError(NextLexeme.Loc, "Function declarations must end with a ';'");
     getLexeme();
+    return Proto;
+}
+
+
+std::unique_ptr<ast::Function> ast::Parser::parseFunction(std::unique_ptr<ast::Prototype> Proto) {
     auto Variables = std::make_unique<Vars>(NextLexeme.Loc);
     if (NextLexeme.K == Lexeme::Kind::VAR) {
         Variables = parseVars();
@@ -319,30 +341,10 @@ std::unique_ptr<ast::Function> ast::Parser::parseFunction() {
     if (NextLexeme.Char != ';')
         return LogError(NextLexeme.Loc, "Function declarations should end with semicolons");
     getLexeme();
-    return std::make_unique<ast::Function>(StartingLoc, Name, Type, std::move(Params), std::move(Variables), std::move(Body));
+    return std::make_unique<ast::Function>(Proto->Loc, std::move(Proto), std::move(Variables), std::move(Body));
 }
 
-std::unique_ptr<ast::Vars> ast::Parser::parseFunctionParameters() {
-    auto V = std::make_unique<Vars>(NextLexeme.Loc);
-    while (true) {
-        if (NextLexeme.K != Lexeme::Kind::IDENT)
-            return LogError(NextLexeme.Loc, "Expecting parameter name in function declaration");
-        auto Name = getLexeme().IdentifierStr;
-        if (NextLexeme.Char != ':')
-            return LogError(NextLexeme.Loc, "Expecting ':' in function declaration");
-        getLexeme();
-        if (NextLexeme.K != Lexeme::Kind::IDENT)
-            return LogError(NextLexeme.Loc, "Expecting type name in function declaration");
-        auto Type = getLexeme().IdentifierStr;
-        V->addVar(Name, Type);
-        if (NextLexeme.K == Lexeme::Kind::RPAR) {
-            getLexeme();
-            return V;
-        } else if (NextLexeme.Char != ';')
-            return LogError(NextLexeme.Loc, "Expecting parameter separator in function declaration");
-        getLexeme();
-    }
-}
+
 
 std::unique_ptr<ast::Vars> ast::Parser::parseVars() {
     assert(NextLexeme.K == Lexeme::Kind::VAR);
@@ -399,10 +401,21 @@ std::unique_ptr<ast::Program> ast::Parser::parse() {
     }
 
     while (NextLexeme.K == Lexeme::Kind::FUNCTION) {
-        auto F = parseFunction();
-        if (!F)
+        auto P = parsePrototype();
+        if (!P)
             return nullptr;
-        Program->addFunction(std::move(F));
+        if (NextLexeme.K == Lexeme::Kind::FORWARD) {
+            Program->addPrototype(std::move(P));
+            getLexeme();
+            if (NextLexeme.Char != ';')
+                return LogError(NextLexeme.Loc, "forward statements should be terminated with a ';'");
+            getLexeme();
+        } else {
+            auto F = parseFunction(std::move(P));
+            if (!F)
+                return nullptr;
+            Program->addFunction(std::move(F));
+        }
     }
 
     auto Body = parseStmt();

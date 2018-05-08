@@ -16,6 +16,7 @@ namespace ast {
         int Indendation;
 
         void printOperator(Lexeme::Kind K);
+        void printPrototype(Prototype &E);
         void printIndentation();
     public:
         Printer(llvm::raw_ostream &Out);
@@ -45,6 +46,8 @@ namespace ast {
         void visit(WhileStmt &E) override;
 
         void visit(Consts &E) override;
+
+        void visit(Prototype &E) override;
 
         void visit(Function &E) override;
 
