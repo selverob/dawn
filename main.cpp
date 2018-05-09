@@ -55,7 +55,12 @@ int main() {
     Module.setDataLayout(TargetMachine->createDataLayout());
     Module.setTargetTriple(TargetTriple);
     codegen::Codegen Generator(Sources, Module);
-    Generator.visit(*Program->Functions[0]);
+    for (auto &P : Program->Prototypes) {
+        Generator.visit(*P);
+    }
+    for (auto &F : Program->Functions) {
+        Generator.visit(*F);
+    }
     Module.print(Out, nullptr);
     Out << '\n';
     Out.flush();
