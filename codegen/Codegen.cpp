@@ -326,7 +326,13 @@ void codegen::Codegen::visit(ast::Function &E) {
 }
 
 void codegen::Codegen::visit(ast::Program &E) {
-
+    E.Constants->accept(*this);
+    for (auto &P : E.Prototypes) {
+        P->accept(*this);
+    }
+    for (auto &F : E.Functions) {
+        F->accept(*this);
+    }
 }
 
 void codegen::Codegen::visit(ast::Vars &E) {

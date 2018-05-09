@@ -55,16 +55,10 @@ int main() {
     Module.setDataLayout(TargetMachine->createDataLayout());
     Module.setTargetTriple(TargetTriple);
     codegen::Codegen Generator(Sources, Module);
-    for (auto &P : Program->Prototypes) {
-        Generator.visit(*P);
-    }
-    for (auto &F : Program->Functions) {
-        Generator.visit(*F);
-    }
+    Program->accept(Generator);
     Module.print(Out, nullptr);
     Out << '\n';
     Out.flush();
-
     std::error_code EC;
     llvm::raw_fd_ostream Dest("../dawn.o", EC, llvm::sys::fs::F_None);
 
