@@ -1,14 +1,21 @@
 #include <iostream>
 #include <cstring>
 #include <memory>
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 #include "lex/Lexeme.h"
 #include "lex/Lexer.h"
 #include "ast/Parser.h"
 #include "ast/Printer.h"
+#include "codegen/Codegen.h"
 
 int main() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
     llvm::SourceMgr Sources;
     std::string FullPath;
     Sources.setIncludeDirs({"/home/selvek/FIT/PJP/dawn"});
@@ -24,8 +31,9 @@ int main() {
     auto Program = Parser.parse();
     if (!Program)
         return 1;
-    ast::Printer Printer(Out);
-    Program->accept(Printer);
+    codegen::Codegen Generator(Sources, llvm::sys::getDefaultTargetTriple());
+    Generator.visit(*Program->Functions[0]);
+    Generator.print(Out);
     Out << '\n';
     Out.flush();
     return 0;
