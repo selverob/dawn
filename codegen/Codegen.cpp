@@ -19,9 +19,11 @@
 #include "../ast/stmt/CallStmt.h"
 #include "../ast/stmt/AssignmentStmt.h"
 #include "../ast/stmt/CompoundStmt.h"
+#include "../ast/stmt/IfStmt.h"
 
 codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
-        Module(Module), LastValue(nullptr), Builder(Module.getContext()), Sources(Sources) {
+        Module(Module), LastValue(nullptr), Builder(Module.getContext()),
+        Sources(Sources) {
     FPM = std::make_unique<llvm::legacy::FunctionPassManager>(&Module);
     FPM->add(llvm::createPromoteMemoryToRegisterPass());
     FPM->add(llvm::createInstructionCombiningPass());
@@ -130,7 +132,7 @@ void codegen::Codegen::visit(ast::VarExpr &E) {
 void codegen::Codegen::visit(ast::AssignmentStmt &E) {
     auto Alloca = NamedValues[E.Var];
     if (!Alloca)
-        return LogError(E.Loc, "Undeclared variable referenced");
+        return LogError(E.Loc, "Undeclared variable assigned to");
     E.Value->accept(*this);
     if (!LastValue)
         return;
@@ -150,7 +152,19 @@ void codegen::Codegen::visit(ast::CompoundStmt &E) {
 }
 
 void codegen::Codegen::visit(ast::ExitStmt &E) {
+    auto Parent = Builder.GetInsertBlock()->getParent();
+    llvm::BasicBlock *RetBlock = nullptr;
+    for (auto &Block : Parent->getBasicBlockList()) {
+        if (Block.getName() == "return") {
+            RetBlock = &Block;
+            break;
+        }
+    }
+    assert(RetBlock != nullptr);
+    Builder.CreateBr(RetBlock);
 
+    auto NewBB = llvm::BasicBlock::Create(Module.getContext(), "afterexit", Parent);
+    Builder.SetInsertPoint(NewBB);
 }
 
 void codegen::Codegen::visit(ast::ForStmt &E) {
@@ -158,7 +172,33 @@ void codegen::Codegen::visit(ast::ForStmt &E) {
 }
 
 void codegen::Codegen::visit(ast::IfStmt &E) {
+    E.Condition->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    auto Condition = Builder.CreateICmpNE(LastValue,
+                                        llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true)), "cond");
+    llvm::Function *Fn = Builder.GetInsertBlock()->getParent();
+    auto ThenBB = llvm::BasicBlock::Create(Module.getContext(), "then", Fn);
+    auto ElseBB = llvm::BasicBlock::Create(Module.getContext(), "else", Fn);
+    auto AfterBB = llvm::BasicBlock::Create(Module.getContext(), "after", Fn);
 
+    Builder.CreateCondBr(Condition, ThenBB, ElseBB);
+
+    Builder.SetInsertPoint(ThenBB);
+    E.IfBody->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    Builder.CreateBr(AfterBB);
+
+    Builder.SetInsertPoint(ElseBB);
+    if (E.ElseBody) {
+        E.ElseBody->accept(*this);
+        if (LastValue == nullptr)
+            return;
+    }
+    Builder.CreateBr(AfterBB);
+
+    Builder.SetInsertPoint(AfterBB);
 }
 
 void codegen::Codegen::visit(ast::WhileStmt &E) {
@@ -180,8 +220,8 @@ void codegen::Codegen::visit(ast::Function &E) {
     generatePrototype(*E.Proto);
     auto F = llvm::dyn_cast<llvm::Function>(LastValue);
 
-    llvm::BasicBlock *BB = llvm::BasicBlock::Create(Module.getContext(), "entry", F);
-    Builder.SetInsertPoint(BB);
+    llvm::BasicBlock *Body = llvm::BasicBlock::Create(Module.getContext(), "entry", F);
+    Builder.SetInsertPoint(Body);
 
     llvm::StringMap<llvm::AllocaInst *> OldNamedValues;
     std::swap(NamedValues, OldNamedValues);
@@ -205,10 +245,8 @@ void codegen::Codegen::visit(ast::Function &E) {
         NamedValues[F->getName()] = RetVal;
     }
 
-    E.Body->accept(*this);
-    if (LastValue == nullptr)
-        return;
-
+    llvm::BasicBlock *RetBlock = llvm::BasicBlock::Create(Module.getContext(), "return", F);
+    Builder.SetInsertPoint(RetBlock);
     if (E.Proto->ReturnType != "void") {
         auto ReturnResult = Builder.CreateLoad(NamedValues[F->getName()]);
         Builder.CreateRet(ReturnResult);
@@ -216,7 +254,13 @@ void codegen::Codegen::visit(ast::Function &E) {
         Builder.CreateRetVoid();
     }
 
-    llvm::verifyFunction(*F);
+    Builder.SetInsertPoint(Body);
+    E.Body->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    Builder.CreateBr(RetBlock);
+
+    assert(!llvm::verifyFunction(*F, &llvm::errs()));
     FPM->run(*F);
     std::swap(NamedValues, OldNamedValues);
 
