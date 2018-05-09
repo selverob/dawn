@@ -22,6 +22,8 @@
 #include "../ast/stmt/IfStmt.h"
 #include "../ast/stmt/WhileStmt.h"
 #include "../ast/stmt/ForStmt.h"
+#include "../ast/decl/Consts.h"
+#include "../ast/decl/Program.h"
 
 codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
         Module(Module), LastValue(nullptr), Builder(Module.getContext()),
@@ -112,10 +114,16 @@ void codegen::Codegen::visit(ast::UnaryOpExpr &E) {
 
 void codegen::Codegen::visit(ast::VarExpr &E) {
     llvm::Value *V = NamedValues[E.VarName];
-    if (!V)
-        return LogError(E.Loc, "Undeclared variable used");
+    if (V) {
+        LastValue = Builder.CreateLoad(V, E.VarName.c_str());
+        return;
+    }
 
-    LastValue = Builder.CreateLoad(V, E.VarName.c_str());
+    llvm::Constant *C = Constants[E.VarName];
+    if (!C) {
+        return LogError(E.Loc, "Undeclared variable used");
+    }
+    LastValue = C;
 }
 
 void codegen::Codegen::visit(ast::AssignmentStmt &E) {
@@ -254,7 +262,9 @@ void codegen::Codegen::visit(ast::WhileStmt &E) {
 }
 
 void codegen::Codegen::visit(ast::Consts &E) {
-
+    for (const auto &Const : E.Constants) {
+        Constants[Const.first] = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, (uint64_t) Const.second, true));
+    }
 }
 
 

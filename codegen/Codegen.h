@@ -26,6 +26,7 @@ namespace codegen {
         std::unique_ptr<llvm::legacy::FunctionPassManager> FPM;
         llvm::StringMap<llvm::AllocaInst *> NamedValues;
         llvm::StringMap<ast::Prototype*> Prototypes;
+        llvm::StringMap<llvm::Constant*> Constants;
 
         llvm::SourceMgr &Sources;
 
