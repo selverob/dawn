@@ -20,6 +20,7 @@
 #include "../ast/stmt/AssignmentStmt.h"
 #include "../ast/stmt/CompoundStmt.h"
 #include "../ast/stmt/IfStmt.h"
+#include "../ast/stmt/WhileStmt.h"
 
 codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
         Module(Module), LastValue(nullptr), Builder(Module.getContext()),
@@ -84,21 +85,8 @@ void codegen::Codegen::visit(ast::BinaryOpExpr &E) {
 }
 
 void codegen::Codegen::visit(ast::CallExpr &E) {
-    //TODO: Implement function variable definitions and function returns
-    lookupFunction(E.FunctionName);
-    if (LastValue == nullptr)
-        return LogError(E.Loc, "Undefined function called");
-    auto F = llvm::dyn_cast<llvm::Function>(LastValue);
-    if (F->arg_size() != E.Args.size())
-        return LogError(E.Loc, "Invalid number of function arguments");
-    std::vector<llvm::Value*> FunctionArgs;
-    for (auto &Arg : E.Args) {
-        Arg->accept(*this);
-        if (LastValue == nullptr)
-            return;
-        FunctionArgs.push_back(LastValue);
-    }
-    LastValue = Builder.CreateCall(F, FunctionArgs, "calltmp");
+    //TODO: Fail on trying to call a void function in an expression
+    callFn(E);
 }
 
 void codegen::Codegen::visit(ast::NumExpr &E) {
@@ -202,7 +190,24 @@ void codegen::Codegen::visit(ast::IfStmt &E) {
 }
 
 void codegen::Codegen::visit(ast::WhileStmt &E) {
-
+    auto Fn = Builder.GetInsertBlock()->getParent();
+    auto CondBB = llvm::BasicBlock::Create(Module.getContext(), "whilecond", Fn);
+    auto BodyBB = llvm::BasicBlock::Create(Module.getContext(), "whilebody", Fn);
+    auto AfterBB = llvm::BasicBlock::Create(Module.getContext(), "whileafter", Fn);
+    Builder.CreateBr(CondBB);
+    Builder.SetInsertPoint(CondBB);
+    E.Condition->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    auto Condition = Builder.CreateICmpNE(LastValue,
+                                          llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true)), "cond");
+    Builder.CreateCondBr(Condition, BodyBB, AfterBB);
+    Builder.SetInsertPoint(BodyBB);
+    E.Body->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    Builder.CreateBr(CondBB);
+    Builder.SetInsertPoint(AfterBB);
 }
 
 void codegen::Codegen::visit(ast::Consts &E) {
@@ -323,4 +328,25 @@ void codegen::Codegen::generatePrototype(ast::Prototype &P) {
     for (auto &Param : F->args())
         Param.setName(P.Parameters[i++].first);
     LastValue = F;
+}
+
+void codegen::Codegen::callFn(ast::CallExpr &C) {
+    //TODO: Implement function variable definitions and function returns
+    lookupFunction(C.FunctionName);
+    if (LastValue == nullptr)
+        return LogError(C.Loc, "Undefined function called");
+    auto F = llvm::dyn_cast<llvm::Function>(LastValue);
+    if (F->arg_size() != C.Args.size())
+        return LogError(C.Loc, "Invalid number of function arguments");
+    std::vector<llvm::Value*> FunctionArgs;
+    for (auto &Arg : C.Args) {
+        Arg->accept(*this);
+        if (LastValue == nullptr)
+            return;
+        FunctionArgs.push_back(LastValue);
+    }
+    if (F->getReturnType() == llvm::Type::getVoidTy(Module.getContext()))
+        LastValue = Builder.CreateCall(F, FunctionArgs);
+    else
+        LastValue = Builder.CreateCall(F, FunctionArgs, "calltmp");
 }

@@ -40,6 +40,7 @@ namespace codegen {
 
         void generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS);
         void generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS);
+        void callFn(ast::CallExpr &C);
 
     public:
         Codegen(llvm::SourceMgr &Sources, llvm::Module &Module);
