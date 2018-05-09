@@ -21,9 +21,8 @@ using namespace ast;
 namespace codegen {
     class Codegen : public Visitor {
         llvm::Value *LastValue;
-        llvm::LLVMContext Context;
         llvm::IRBuilder<> Builder;
-        std::unique_ptr<llvm::Module> Module;
+        llvm::Module &Module;
         std::unique_ptr<llvm::legacy::FunctionPassManager> FPM;
         llvm::StringMap<llvm::AllocaInst *> NamedValues;
         llvm::StringMap<ast::Prototype*> Prototypes;
@@ -43,7 +42,7 @@ namespace codegen {
         void generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS);
 
     public:
-        Codegen(llvm::SourceMgr &Sources, std::string TargetTriple);
+        Codegen(llvm::SourceMgr &Sources, llvm::Module &Module);
 
         void visit(BinaryOpExpr &E) override;
 
@@ -78,10 +77,6 @@ namespace codegen {
         void visit(Program &E) override;
 
         void visit(Vars &E) override;
-
-        void print(llvm::raw_ostream &Out);
-
-        llvm::Module &getModule();
     };
 }
 

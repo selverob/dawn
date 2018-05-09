@@ -1,8 +1,10 @@
 #include <iostream>
 #include <cstring>
 #include <memory>
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/SourceMgr.h"
@@ -31,9 +33,23 @@ int main() {
     auto Program = Parser.parse();
     if (!Program)
         return 1;
-    codegen::Codegen Generator(Sources, llvm::sys::getDefaultTargetTriple());
+
+    auto TargetTriple = llvm::sys::getDefaultTargetTriple();
+    std::string Error;
+    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+    if (!Target)
+        throw Error;
+
+    llvm::TargetOptions Opt;
+    auto RM = llvm::Optional<llvm::Reloc::Model>();
+    auto TargetMachine = Target->createTargetMachine(TargetTriple, "generic", "", Opt, RM);
+    llvm::LLVMContext Context;
+    llvm::Module Module("top level module", Context);
+    Module.setDataLayout(TargetMachine->createDataLayout());
+    Module.setTargetTriple(TargetTriple);
+    codegen::Codegen Generator(Sources, Module);
     Generator.visit(*Program->Functions[0]);
-    Generator.print(Out);
+    Module.print(Out, nullptr);
     Out << '\n';
     Out.flush();
     return 0;

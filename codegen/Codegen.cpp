@@ -8,10 +8,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -24,21 +20,9 @@
 #include "../ast/stmt/AssignmentStmt.h"
 #include "../ast/stmt/CompoundStmt.h"
 
-codegen::Codegen::Codegen(llvm::SourceMgr &Sources, std::string TargetTriple) :
-        LastValue(nullptr), Context(), Builder(Context), Sources(Sources),
-        Module(std::make_unique<llvm::Module>("top level module", Context)) {
-    std::string Error;
-    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
-    if (!Target)
-        throw Error;
-
-    llvm::TargetOptions Opt;
-    auto RM = llvm::Optional<llvm::Reloc::Model>();
-    auto TargetMachine = Target->createTargetMachine(TargetTriple, "generic", "", Opt, RM);
-    Module->setDataLayout(TargetMachine->createDataLayout());
-    Module->setTargetTriple(TargetTriple);
-
-    FPM = std::make_unique<llvm::legacy::FunctionPassManager>(Module.get());
+codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
+        Module(Module), LastValue(nullptr), Builder(Module.getContext()), Sources(Sources) {
+    FPM = std::make_unique<llvm::legacy::FunctionPassManager>(&Module);
     FPM->add(llvm::createPromoteMemoryToRegisterPass());
     FPM->add(llvm::createInstructionCombiningPass());
     FPM->add(llvm::createReassociatePass());
@@ -116,19 +100,19 @@ void codegen::Codegen::visit(ast::CallExpr &E) {
 }
 
 void codegen::Codegen::visit(ast::NumExpr &E) {
-    LastValue = llvm::ConstantInt::get(Context, llvm::APInt(64, E.Value, true));
+    LastValue = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, E.Value, true));
 }
 
 void codegen::Codegen::visit(ast::UnaryOpExpr &E) {
     E.Expression->accept(*this);
-    auto Zero = llvm::ConstantInt::get(Context, llvm::APInt(64, 0, true));
+    auto Zero = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true));
     switch (E.Op) {
         case Lexeme::Kind::MINUS:
             LastValue = Builder.CreateSub(Zero, LastValue, "unarymintmp");
             break;
         case Lexeme::Kind::NOT:
             LastValue = Builder.CreateIntCast(Builder.CreateICmpEQ(Zero, LastValue, "nottmp"),
-                    llvm::Type::getInt64Ty(Context), true);
+                    llvm::Type::getInt64Ty(Module.getContext()), true);
             break;
         default:
             LogError(E.Loc, "Invalid binary operation");
@@ -196,7 +180,7 @@ void codegen::Codegen::visit(ast::Function &E) {
     generatePrototype(*E.Proto);
     auto F = llvm::dyn_cast<llvm::Function>(LastValue);
 
-    llvm::BasicBlock *BB = llvm::BasicBlock::Create(Context, "entry", F);
+    llvm::BasicBlock *BB = llvm::BasicBlock::Create(Module.getContext(), "entry", F);
     Builder.SetInsertPoint(BB);
 
     llvm::StringMap<llvm::AllocaInst *> OldNamedValues;
@@ -207,7 +191,7 @@ void codegen::Codegen::visit(ast::Function &E) {
         Builder.CreateStore(&Arg, Alloca);
         NamedValues[Arg.getName()] = Alloca;
     }
-    auto Zero = llvm::ConstantInt::get(Context, llvm::APInt(64, 0, true));
+    auto Zero = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true));
     for (const auto &VarInfo : E.Variables->Variables) {
         //TODO: Handle different type names
         llvm::AllocaInst *Alloca = createAlloca(F, VarInfo.first);
@@ -249,15 +233,15 @@ void codegen::Codegen::visit(ast::Vars &E) {
 
 void codegen::Codegen::generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS) {
     LHS = Builder.CreateICmp(Pred, LHS, RHS, "cmptmp");
-    LastValue = Builder.CreateIntCast(LHS, llvm::Type::getInt64Ty(Context), true);
+    LastValue = Builder.CreateIntCast(LHS, llvm::Type::getInt64Ty(Module.getContext()), true);
 }
 
 void codegen::Codegen::generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS) {
-    auto Zero = llvm::ConstantInt::get(Context, llvm::APInt(64, 0, true));
+    auto Zero = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true));
     LHS = Builder.CreateIntCast(Builder.CreateICmpNE(Zero, LHS, "lhscoercion"),
-                               llvm::Type::getInt64Ty(Context), true);
+                               llvm::Type::getInt64Ty(Module.getContext()), true);
     RHS = Builder.CreateIntCast(Builder.CreateICmpNE(Zero, RHS, "rhscoercion"),
-                                llvm::Type::getInt64Ty(Context), true);
+                                llvm::Type::getInt64Ty(Module.getContext()), true);
     if (Op == Lexeme::Kind::AND)
         LastValue = Builder.CreateAnd(LHS, RHS, "andop");
     else if (Op == Lexeme::Kind::OR)
@@ -267,7 +251,7 @@ void codegen::Codegen::generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::
 }
 
 void codegen::Codegen::lookupFunction(llvm::StringRef Name) {
-    if (auto *F = Module->getFunction(Name))
+    if (auto *F = Module.getFunction(Name))
         LastValue = F;
 
     if (Prototypes.count(Name))
@@ -278,32 +262,21 @@ void codegen::Codegen::lookupFunction(llvm::StringRef Name) {
 
 llvm::AllocaInst *codegen::Codegen::createAlloca(llvm::Function *F, llvm::StringRef VarName) {
     llvm::IRBuilder<> B(&F->getEntryBlock(), F->getEntryBlock().begin());
-    return B.CreateAlloca(llvm::Type::getInt64Ty(Context), nullptr, VarName);
+    return B.CreateAlloca(llvm::Type::getInt64Ty(Module.getContext()), nullptr, VarName);
 }
 
 void codegen::Codegen::generatePrototype(ast::Prototype &P) {
-    std::vector<llvm::Type *> Ints(P.Parameters.size(), llvm::Type::getInt64Ty(Context));
+    std::vector<llvm::Type *> Ints(P.Parameters.size(), llvm::Type::getInt64Ty(Module.getContext()));
     llvm::Type *ReturnType;
     if (P.ReturnType == "integer")
-        ReturnType = llvm::Type::getInt64Ty(Context);
+        ReturnType = llvm::Type::getInt64Ty(Module.getContext());
     else
-        ReturnType = llvm::Type::getVoidTy(Context);
+        ReturnType = llvm::Type::getVoidTy(Module.getContext());
     llvm::FunctionType *FT = llvm::FunctionType::get(ReturnType, Ints, false);
 
-    auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, P.Name, Module.get());
+    auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, P.Name, &Module);
     size_t i = 0;
     for (auto &Param : F->args())
         Param.setName(P.Parameters[i++].first);
     LastValue = F;
 }
-
-void codegen::Codegen::print(llvm::raw_ostream &Out) {
-    Module->print(Out, nullptr);
-}
-
-llvm::Module &codegen::Codegen::getModule() {
-    return *Module;
-}
-
-
-
