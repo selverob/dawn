@@ -21,6 +21,7 @@
 #include "../ast/stmt/CompoundStmt.h"
 #include "../ast/stmt/IfStmt.h"
 #include "../ast/stmt/WhileStmt.h"
+#include "../ast/stmt/ForStmt.h"
 
 codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
         Module(Module), LastValue(nullptr), Builder(Module.getContext()),
@@ -156,7 +157,49 @@ void codegen::Codegen::visit(ast::ExitStmt &E) {
 }
 
 void codegen::Codegen::visit(ast::ForStmt &E) {
+    auto IterVar = NamedValues[E.Var];
+    if (!IterVar)
+        return LogError(E.Loc, "Iteration variable was not declared");
+    E.Begin->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    Builder.CreateStore(LastValue, IterVar);
+    E.End->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    auto FinalVal = LastValue;
+    auto Fn = Builder.GetInsertBlock()->getParent();
+    auto IterBB = llvm::BasicBlock::Create(Module.getContext(), "forcond", Fn);
+    auto BodyBB = llvm::BasicBlock::Create(Module.getContext(), "forbody", Fn);
+    auto AfterBB = llvm::BasicBlock::Create(Module.getContext(), "forafter", Fn);
+    Builder.CreateBr(IterBB);
+    Builder.SetInsertPoint(IterBB);
+    llvm::Value *Condition;
+    if (E.Operator == Lexeme::Kind::TO) {
+        Condition = Builder.CreateICmpSLT(Builder.CreateLoad(IterVar, "iterationvar"), FinalVal);
+    } else if (E.Operator == Lexeme::Kind::DOWNTO) {
+        Condition = Builder.CreateICmpSGT(Builder.CreateLoad(IterVar, "iterationvar"), FinalVal);
+    } else {
+        llvm_unreachable("Invalid operand in for");
+    }
+    Builder.CreateCondBr(Condition, BodyBB, AfterBB);
 
+    Builder.SetInsertPoint(BodyBB);
+    E.Body->accept(*this);
+    if (LastValue == nullptr)
+        return;
+    llvm::Value *LoadedIterVar = Builder.CreateLoad(IterVar, "iterationvar");
+    llvm::Value *NewIterVarValue = nullptr;
+    if (E.Operator == Lexeme::Kind::TO) {
+        NewIterVarValue = Builder.CreateAdd(
+                LoadedIterVar, llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 1, true)));
+    } else if (E.Operator == Lexeme::Kind::DOWNTO) {
+        NewIterVarValue = Builder.CreateSub(
+                LoadedIterVar, llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 1, true)));
+    }
+    Builder.CreateStore(NewIterVarValue, IterVar);
+    Builder.CreateBr(IterBB);
+    Builder.SetInsertPoint(AfterBB);
 }
 
 void codegen::Codegen::visit(ast::IfStmt &E) {
