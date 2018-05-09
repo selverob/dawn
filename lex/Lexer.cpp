@@ -40,11 +40,6 @@ Lexeme Lexer::getLexeme() {
     while (isspace(LastChar))
         readChar();
 
-
-    if (isalnum(LastChar) || LastChar == '_') {
-        return readIdentifier();
-    }
-
     if (isdigit(LastChar)) {
         return readNumber(10);
     }
@@ -55,6 +50,10 @@ Lexeme Lexer::getLexeme() {
     if (LastChar == '&') {
         readChar();
         return readNumber(8);
+    }
+
+    if (isalnum(LastChar) || LastChar == '_') {
+        return readIdentifier();
     }
 
     if (LastChar == EOF) {
