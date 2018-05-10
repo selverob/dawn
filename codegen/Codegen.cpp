@@ -64,19 +64,19 @@ void codegen::Codegen::visit(ast::BinaryOpExpr &E) {
             generateICmp(llvm::CmpInst::Predicate::ICMP_NE, LHS, RHS);
             break;
         case Lexeme::Kind::PLUS:
-            LastValue = Builder.CreateAdd(LHS, RHS);
+            LastValue = Builder.CreateAdd(LHS, RHS, "plustmp");
             break;
         case Lexeme::Kind::MINUS:
-            LastValue = Builder.CreateSub(LHS, RHS);
+            LastValue = Builder.CreateSub(LHS, RHS, "subtmp");
             break;
         case Lexeme::Kind::MOD:
-            LastValue = Builder.CreateSRem(LHS, RHS);
+            LastValue = Builder.CreateSRem(LHS, RHS, "modtmp");
             break;
         case Lexeme::Kind::MUL:
-            LastValue = Builder.CreateMul(LHS, RHS);
+            LastValue = Builder.CreateMul(LHS, RHS, "multmp");
             break;
         case Lexeme::Kind::DIV:
-            LastValue = Builder.CreateSDiv(LHS, RHS);
+            LastValue = Builder.CreateSDiv(LHS, RHS, "divtmp");
             break;
         case Lexeme::Kind::AND:
         case Lexeme::Kind::OR:
@@ -119,6 +119,12 @@ void codegen::Codegen::visit(ast::VarExpr &E) {
         return;
     }
 
+    V = Module.getNamedGlobal(E.VarName);
+    if (V) {
+        LastValue = Builder.CreateLoad(V, E.VarName.c_str());
+        return;
+    }
+
     llvm::Constant *C = Constants[E.VarName];
     if (!C) {
         return LogError(E.Loc, "Undeclared variable used");
@@ -127,13 +133,21 @@ void codegen::Codegen::visit(ast::VarExpr &E) {
 }
 
 void codegen::Codegen::visit(ast::AssignmentStmt &E) {
-    auto Alloca = NamedValues[E.Var];
-    if (!Alloca)
-        return LogError(E.Loc, "Undeclared variable assigned to");
     E.Value->accept(*this);
     if (!LastValue)
         return;
-    Builder.CreateStore(LastValue, Alloca);
+    auto Alloca = NamedValues[E.Var];
+    if (Alloca) {
+        LastValue = Builder.CreateStore(LastValue, Alloca);
+        return;
+    }
+
+    llvm::errs() << "Last Value is: " << LastValue->getName();
+
+    auto Global = Module.getNamedGlobal(E.Var);
+    if (!Global)
+        return LogError(E.Loc, "Undeclared variable assigned to");
+    LastValue = Builder.CreateStore(LastValue, Global);
 }
 
 void codegen::Codegen::visit(ast::CallStmt &E) {
@@ -327,6 +341,7 @@ void codegen::Codegen::visit(ast::Function &E) {
 
 void codegen::Codegen::visit(ast::Program &E) {
     E.Constants->accept(*this);
+    E.Variables->accept(*this);
     for (auto &P : E.Prototypes) {
         P->accept(*this);
     }
@@ -336,7 +351,12 @@ void codegen::Codegen::visit(ast::Program &E) {
 }
 
 void codegen::Codegen::visit(ast::Vars &E) {
-    llvm_unreachable("Var generation should be handled in their parent");
+    for (auto &Var : E.Variables) {
+        Module.getOrInsertGlobal(Var.first, Builder.getInt64Ty());
+        auto GlobalVar = Module.getNamedGlobal(Var.first);
+        GlobalVar->setLinkage(llvm::GlobalValue::InternalLinkage);
+        GlobalVar->setInitializer(llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0)));
+    }
 }
 
 void codegen::Codegen::generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS) {
