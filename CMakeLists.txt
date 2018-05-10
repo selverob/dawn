@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(dawn)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "-Wall")
 find_package(LLVM REQUIRED CONFIG)
 
 add_definitions(${LLVM_DEFINITIONS})

@@ -38,8 +38,10 @@ codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
 }
 
 void codegen::Codegen::visit(ast::BinaryOpExpr &E) {
-    E.L->accept(*this); auto LHS = LastValue;
-    E.R->accept(*this); auto RHS = LastValue;
+    E.L->accept(*this);
+    auto LHS = LastValue;
+    E.R->accept(*this);
+    auto RHS = LastValue;
     if (LHS == nullptr || RHS == nullptr) {
         LastValue = nullptr;
         return;
@@ -105,7 +107,7 @@ void codegen::Codegen::visit(ast::UnaryOpExpr &E) {
             break;
         case Lexeme::Kind::NOT:
             LastValue = Builder.CreateIntCast(Builder.CreateICmpEQ(Zero, LastValue, "nottmp"),
-                    llvm::Type::getInt64Ty(Module.getContext()), true);
+                                              llvm::Type::getInt64Ty(Module.getContext()), true);
             break;
         default:
             LogError(E.Loc, "Invalid binary operation");
@@ -141,8 +143,6 @@ void codegen::Codegen::visit(ast::AssignmentStmt &E) {
         LastValue = Builder.CreateStore(LastValue, Alloca);
         return;
     }
-
-    llvm::errs() << "Last Value is: " << LastValue->getName();
 
     auto Global = Module.getNamedGlobal(E.Var);
     if (!Global)
@@ -229,7 +229,8 @@ void codegen::Codegen::visit(ast::IfStmt &E) {
     if (LastValue == nullptr)
         return;
     auto Condition = Builder.CreateICmpNE(LastValue,
-                                        llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true)), "cond");
+                                          llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true)),
+                                          "cond");
     llvm::Function *Fn = Builder.GetInsertBlock()->getParent();
     auto ThenBB = llvm::BasicBlock::Create(Module.getContext(), "then", Fn);
     auto ElseBB = llvm::BasicBlock::Create(Module.getContext(), "else", Fn);
@@ -265,7 +266,8 @@ void codegen::Codegen::visit(ast::WhileStmt &E) {
     if (LastValue == nullptr)
         return;
     auto Condition = Builder.CreateICmpNE(LastValue,
-                                          llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true)), "cond");
+                                          llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true)),
+                                          "cond");
     Builder.CreateCondBr(Condition, BodyBB, AfterBB);
     Builder.SetInsertPoint(BodyBB);
     E.Body->accept(*this);
@@ -277,7 +279,8 @@ void codegen::Codegen::visit(ast::WhileStmt &E) {
 
 void codegen::Codegen::visit(ast::Consts &E) {
     for (const auto &Const : E.Constants) {
-        Constants[Const.first] = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, (uint64_t) Const.second, true));
+        Constants[Const.first] = llvm::ConstantInt::get(Module.getContext(),
+                                                        llvm::APInt(64, (uint64_t) Const.second, true));
     }
 }
 
@@ -347,7 +350,20 @@ void codegen::Codegen::visit(ast::Program &E) {
     }
     for (auto &F : E.Functions) {
         F->accept(*this);
+        if (LastValue == nullptr)
+            return;
     }
+
+    auto Loc = E.Body->Loc;
+
+    auto Proto = std::make_unique<ast::Prototype>(Loc, "main", "void");
+
+    ast::Function Fn(
+            Loc,
+            std::move(Proto),
+            std::make_unique<ast::Vars>(Loc),
+            std::move(E.Body));
+    Fn.accept(*this);
 }
 
 void codegen::Codegen::visit(ast::Vars &E) {
@@ -367,7 +383,7 @@ void codegen::Codegen::generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *
 void codegen::Codegen::generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS) {
     auto Zero = llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0, true));
     LHS = Builder.CreateIntCast(Builder.CreateICmpNE(Zero, LHS, "lhscoercion"),
-                               llvm::Type::getInt64Ty(Module.getContext()), true);
+                                llvm::Type::getInt64Ty(Module.getContext()), true);
     RHS = Builder.CreateIntCast(Builder.CreateICmpNE(Zero, RHS, "rhscoercion"),
                                 llvm::Type::getInt64Ty(Module.getContext()), true);
     if (Op == Lexeme::Kind::AND)
@@ -379,13 +395,14 @@ void codegen::Codegen::generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::
 }
 
 void codegen::Codegen::lookupFunction(llvm::StringRef Name) {
-    if (auto *F = Module.getFunction(Name))
+    if (auto *F = Module.getFunction(Name)) {
         LastValue = F;
-
-    if (Prototypes.count(Name))
-        return generatePrototype(*Prototypes[Name]);
-
-    LastValue = nullptr;
+    } else if (Prototypes.count(Name)) {
+        generatePrototype(*Prototypes[Name]);
+        Prototypes.erase(Name);
+    } else {
+        LastValue = nullptr;
+    }
 }
 
 llvm::AllocaInst *codegen::Codegen::createAlloca(llvm::Function *F, llvm::StringRef VarName) {
@@ -417,7 +434,7 @@ void codegen::Codegen::callFn(ast::CallExpr &C) {
     auto F = llvm::dyn_cast<llvm::Function>(LastValue);
     if (F->arg_size() != C.Args.size())
         return LogError(C.Loc, "Invalid number of function arguments");
-    std::vector<llvm::Value*> FunctionArgs;
+    std::vector<llvm::Value *> FunctionArgs;
     for (auto &Arg : C.Args) {
         Arg->accept(*this);
         if (LastValue == nullptr)

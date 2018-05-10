@@ -37,8 +37,8 @@ namespace codegen {
 
         llvm::AllocaInst *createAlloca(llvm::Function *F, llvm::StringRef VarName);
         void lookupFunction(llvm::StringRef Name);
+        
         void generatePrototype(Prototype& P);
-
         void generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS);
         void generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS);
         void callFn(ast::CallExpr &C);
