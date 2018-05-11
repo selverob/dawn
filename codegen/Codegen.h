@@ -33,6 +33,7 @@ namespace codegen {
         void LogError(llvm::SMLoc Loc, llvm::StringRef Msg) {
             Sources.PrintMessage(Loc, llvm::SourceMgr::DiagKind::DK_Error, Msg);
             LastValue =  nullptr;
+            Finished = false;
         }
 
         llvm::AllocaInst *createAlloca(llvm::Function *F, llvm::StringRef VarName);
@@ -42,6 +43,8 @@ namespace codegen {
         void generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS);
         void generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS);
         void callFn(ast::CallExpr &C);
+
+        bool Finished;
 
     public:
         Codegen(llvm::SourceMgr &Sources, llvm::Module &Module, llvm::StringMap<ast::Prototype*> StdProtos);
@@ -79,6 +82,8 @@ namespace codegen {
         void visit(Program &E) override;
 
         void visit(Vars &E) override;
+
+        bool finishedSuccesfully() const;
     };
 }
 

@@ -26,7 +26,7 @@
 #include "../ast/decl/Program.h"
 
 codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module, llvm::StringMap<ast::Prototype*> StdProtos) :
-        Module(Module), LastValue(nullptr), Builder(Module.getContext()), Prototypes(std::move(StdProtos)), Sources(Sources) {
+        Module(Module), LastValue(nullptr), Builder(Module.getContext()), Prototypes(std::move(StdProtos)), Sources(Sources), Finished(true) {
     FPM = std::make_unique<llvm::legacy::FunctionPassManager>(&Module);
     FPM->add(llvm::createPromoteMemoryToRegisterPass());
     FPM->add(llvm::createInstructionCombiningPass());
@@ -444,4 +444,8 @@ void codegen::Codegen::callFn(ast::CallExpr &C) {
         LastValue = Builder.CreateCall(F, FunctionArgs);
     else
         LastValue = Builder.CreateCall(F, FunctionArgs, "calltmp");
+}
+
+bool codegen::Codegen::finishedSuccesfully() const {
+    return Finished;
 }

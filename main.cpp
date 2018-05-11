@@ -23,14 +23,18 @@ llvm::StringMap<ast::Prototype*> getStdProtos() {
     return Protos;
 }
 
-int main() {
+int main(int argc, const char **argv) {
+    if (argc != 4) {
+        std::cout << "dawn incldir srcfile ofile" << std::endl;
+        return 1;
+    }
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
     llvm::InitializeNativeTargetAsmParser();
     llvm::SourceMgr Sources;
     std::string FullPath;
-    Sources.setIncludeDirs({"/home/selvek/FIT/PJP/dawn"});
-    Sources.AddIncludeFile("code.dawn", llvm::SMLoc(), FullPath);
+    Sources.setIncludeDirs({argv[1]});
+    Sources.AddIncludeFile(argv[2], llvm::SMLoc(), FullPath);
     llvm::raw_os_ostream Out(std::cout);
     Lexer Lex(Sources, Sources.getMainFileID());
     /*
@@ -49,7 +53,6 @@ int main() {
     Out << '\n';
     Out.flush();*/
     auto TargetTriple = llvm::sys::getDefaultTargetTriple();
-    Out << TargetTriple << '\n';
     std::string Error;
     auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
     if (!Target)
@@ -64,11 +67,14 @@ int main() {
     Module.setTargetTriple(TargetTriple);
     codegen::Codegen Generator(Sources, Module, getStdProtos());
     Program->accept(Generator);
+    if (!Generator.finishedSuccesfully()) {
+        return 2;
+    }
     Module.print(Out, nullptr);
     Out << '\n';
     Out.flush();
     std::error_code EC;
-    llvm::raw_fd_ostream Dest("../dawn.o", EC, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream Dest(argv[3], EC, llvm::sys::fs::F_None);
 
     if (EC) {
         llvm::errs() << "Could not open file: " << EC.message();

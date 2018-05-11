@@ -1,0 +1,21 @@
+#! /usr/bin/bash
+
+set -e
+
+cmake-build-debug/dawn "`dirname "$1"`" "$1" dawntmp.o
+STDLIB="
+#include <iostream>
+
+extern \"C\" long readln() {
+    long n;
+    std::cin >> n;
+    return n;
+}
+
+extern \"C\" void writeln(long n) {
+    std::cout << n << std::endl;
+}"
+
+echo "$STDLIB" | clang++ -o"$2" -std=c++03 dawntmp.o -xc++ -
+
+rm dawntmp.o
