@@ -128,17 +128,21 @@ unsigned ast::Parser::getPrecedence(Lexeme::Kind K) {
 std::unique_ptr<ast::Expr> ast::Parser::parseFunctionCall(const Lexeme &Ident) {
     auto Call = std::make_unique<ast::CallExpr>(Ident.Loc, Ident.IdentifierStr);
     getLexeme();
-    while (true) {
-        auto Arg = parseExpr();
-        if (Arg == nullptr)
-            return nullptr;
-        Call->addArgument(std::move(Arg));
-        if (!(NextLexeme.Char == ',' || NextLexeme.K == Lexeme::Kind::RPAR)) {
-            return LogError(NextLexeme.Loc, "Expected function argument separator (,) or list end ())");
+    if (NextLexeme.K != Lexeme::Kind::RPAR) {
+        while (true) {
+            auto Arg = parseExpr();
+            if (Arg == nullptr)
+                return nullptr;
+            Call->addArgument(std::move(Arg));
+            if (!(NextLexeme.Char == ',' || NextLexeme.K == Lexeme::Kind::RPAR)) {
+                return LogError(NextLexeme.Loc, "Expected function argument separator (,) or list end ())");
+            }
+            if (getLexeme().K == Lexeme::Kind::RPAR) {
+                break;
+            }
         }
-        if (getLexeme().K == Lexeme::Kind::RPAR) {
-            break;
-        }
+    } else {
+        getLexeme();
     }
     return std::unique_ptr<Expr>(std::move(Call));
 }
