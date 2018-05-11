@@ -15,6 +15,14 @@
 #include "ast/Printer.h"
 #include "codegen/Codegen.h"
 
+llvm::StringMap<ast::Prototype*> getStdProtos() {
+    llvm::StringMap<ast::Prototype*> Protos;
+    Protos["writeln"] = new ast::Prototype(llvm::SMLoc(), std::string("writeln"), "void");
+    Protos["writeln"]->addParameter("n", "integer");
+    Protos["readln"] = new ast::Prototype(llvm::SMLoc(), std::string("readln"), "integer");
+    return Protos;
+}
+
 int main() {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -54,7 +62,7 @@ int main() {
     llvm::Module Module("top level module", Context);
     Module.setDataLayout(TargetMachine->createDataLayout());
     Module.setTargetTriple(TargetTriple);
-    codegen::Codegen Generator(Sources, Module);
+    codegen::Codegen Generator(Sources, Module, getStdProtos());
     Program->accept(Generator);
     Module.print(Out, nullptr);
     Out << '\n';

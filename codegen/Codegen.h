@@ -24,7 +24,7 @@ namespace codegen {
         llvm::IRBuilder<> Builder;
         llvm::Module &Module;
         std::unique_ptr<llvm::legacy::FunctionPassManager> FPM;
-        llvm::StringMap<llvm::AllocaInst *> NamedValues;
+        llvm::StringMap<llvm::AllocaInst*> NamedValues;
         llvm::StringMap<ast::Prototype*> Prototypes;
         llvm::StringMap<llvm::Constant*> Constants;
 
@@ -37,14 +37,14 @@ namespace codegen {
 
         llvm::AllocaInst *createAlloca(llvm::Function *F, llvm::StringRef VarName);
         void lookupFunction(llvm::StringRef Name);
-        
+
         void generatePrototype(Prototype& P);
         void generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS);
         void generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS);
         void callFn(ast::CallExpr &C);
 
     public:
-        Codegen(llvm::SourceMgr &Sources, llvm::Module &Module);
+        Codegen(llvm::SourceMgr &Sources, llvm::Module &Module, llvm::StringMap<ast::Prototype*> StdProtos);
 
         void visit(BinaryOpExpr &E) override;
 

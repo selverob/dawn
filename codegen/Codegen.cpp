@@ -25,9 +25,8 @@
 #include "../ast/decl/Consts.h"
 #include "../ast/decl/Program.h"
 
-codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module) :
-        Module(Module), LastValue(nullptr), Builder(Module.getContext()),
-        Sources(Sources) {
+codegen::Codegen::Codegen(llvm::SourceMgr &Sources, llvm::Module &Module, llvm::StringMap<ast::Prototype*> StdProtos) :
+        Module(Module), LastValue(nullptr), Builder(Module.getContext()), Prototypes(std::move(StdProtos)), Sources(Sources) {
     FPM = std::make_unique<llvm::legacy::FunctionPassManager>(&Module);
     FPM->add(llvm::createPromoteMemoryToRegisterPass());
     FPM->add(llvm::createInstructionCombiningPass());
