@@ -76,6 +76,7 @@ Lexeme Lexer::readIdentifier() {
             .Case("const", Lexeme::Kind::CONST)
             .Case("var", Lexeme::Kind::VAR)
             .Case("function", Lexeme::Kind::FUNCTION)
+            .Case("procedure", Lexeme::Kind::FUNCTION)
             .Case("if", Lexeme::Kind::IF)
             .Case("then", Lexeme::Kind::THEN)
             .Case("else", Lexeme::Kind::ELSE)
