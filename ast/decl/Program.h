@@ -26,14 +26,21 @@ namespace ast {
         std::unique_ptr<Stmt> Body;
 
         Program(llvm::SMLoc Loc, std::string Name) :
-                Node(Loc), Name(std::move(Name)) {}
+                Node(Loc),
+                Name(std::move(Name)),
+                Variables(std::make_unique<Vars>(Loc)),
+                Constants(std::make_unique<Consts>(Loc)) {}
 
         void addVariables(std::unique_ptr<Vars> V) {
-            Variables = std::move(V);
+            for (const auto &Var : V->Variables) {
+                Variables->addVar(Var.first, Var.second);
+            }
         }
 
         void addConsts(std::unique_ptr<Consts> C) {
-            Constants = std::move(C);
+            for (const auto &Const : C->Constants) {
+                Constants->addConst(Const.first, Const.second);
+            }
         }
 
         void addPrototype(std::unique_ptr<Prototype> P) {

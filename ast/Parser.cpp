@@ -385,42 +385,38 @@ std::unique_ptr<ast::Program> ast::Parser::parse() {
     if (NextLexeme.Char != ';')
         return LogError(NextLexeme.Loc, "Program identification should be terminated with a semicolon");
     getLexeme();
-
-    if (NextLexeme.K == Lexeme::Kind::CONST) {
-        auto C = parseConsts();
-        if (!C)
-            return nullptr;
-        Program->addConsts(std::move(C));
-    } else {
-        Program->addConsts(std::make_unique<Consts>(NextLexeme.Loc));
-    }
-
-    if (NextLexeme.K == Lexeme::Kind::VAR) {
-        auto V = parseVars();
-        if (!V)
-            return nullptr;
-        Program->addVariables(std::move(V));
-    } else {
-        Program->addVariables(std::make_unique<Vars>(NextLexeme.Loc));
-    }
-
-    while (NextLexeme.K == Lexeme::Kind::FUNCTION) {
-        auto P = parsePrototype();
-        if (!P)
-            return nullptr;
-        if (NextLexeme.K == Lexeme::Kind::FORWARD) {
-            Program->addPrototype(std::move(P));
-            getLexeme();
-            if (NextLexeme.Char != ';')
-                return LogError(NextLexeme.Loc, "forward statements should be terminated with a ';'");
-            getLexeme();
-        } else {
-            auto F = parseFunction(std::move(P));
-            if (!F)
+    while (true) {
+        if (NextLexeme.K == Lexeme::Kind::CONST) {
+            auto C = parseConsts();
+            if (!C)
                 return nullptr;
-            Program->addFunction(std::move(F));
+            Program->addConsts(std::move(C));
+        } else if (NextLexeme.K == Lexeme::Kind::VAR) {
+            auto V = parseVars();
+            if (!V)
+                return nullptr;
+            Program->addVariables(std::move(V));
+        } else if (NextLexeme.K == Lexeme::Kind::FUNCTION) {
+            auto P = parsePrototype();
+            if (!P)
+                return nullptr;
+            if (NextLexeme.K == Lexeme::Kind::FORWARD) {
+                Program->addPrototype(std::move(P));
+                getLexeme();
+                if (NextLexeme.Char != ';')
+                    return LogError(NextLexeme.Loc, "forward statements should be terminated with a ';'");
+                getLexeme();
+            } else {
+                auto F = parseFunction(std::move(P));
+                if (!F)
+                    return nullptr;
+                Program->addFunction(std::move(F));
+            }
+        } else {
+            break;
         }
     }
+
 
     auto Body = parseStmt();
     if (!Body)
