@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <memory>
+#include <llvm/IR/Verifier.h>
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -70,6 +71,7 @@ int main(int argc, const char **argv) {
     if (!Generator.finishedSuccesfully()) {
         return 2;
     }
+    assert(!llvm::verifyModule(Module, &llvm::errs()));
     Module.print(Out, nullptr);
     Out << '\n';
     Out.flush();

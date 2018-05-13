@@ -285,13 +285,14 @@ void codegen::Codegen::visit(ast::Consts &E) {
 
 
 void codegen::Codegen::visit(ast::Prototype &E) {
-    //TODO: Handle redefinition errors
     Prototypes[E.Name] = &E;
 }
 
 void codegen::Codegen::visit(ast::Function &E) {
     //TODO: Handle redefinition errors
-    generatePrototype(*E.Proto);
+    lookupFunction(E.Proto->Name);
+    if (!LastValue)
+        generatePrototype(*E.Proto);
     auto F = llvm::dyn_cast<llvm::Function>(LastValue);
 
     llvm::BasicBlock *Body = llvm::BasicBlock::Create(Module.getContext(), "entry", F);
@@ -299,7 +300,6 @@ void codegen::Codegen::visit(ast::Function &E) {
 
     llvm::StringMap<llvm::AllocaInst *> OldNamedValues;
     std::swap(NamedValues, OldNamedValues);
-
     for (auto &Arg : F->args()) {
         llvm::AllocaInst *Alloca = createAlloca(F, Arg.getName());
         Builder.CreateStore(&Arg, Alloca);
@@ -426,7 +426,6 @@ void codegen::Codegen::generatePrototype(ast::Prototype &P) {
 }
 
 void codegen::Codegen::callFn(ast::CallExpr &C) {
-    //TODO: Implement function variable definitions and function returns
     lookupFunction(C.FunctionName);
     if (LastValue == nullptr)
         return LogError(C.Loc, "Undefined function called");
