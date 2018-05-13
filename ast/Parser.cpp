@@ -357,8 +357,12 @@ std::unique_ptr<ast::Vars> ast::Parser::parseVars() {
         return LogError(NextLexeme.Loc, "Expecting a variable name in variable declaration");
     while (NextLexeme.K == Lexeme::Kind::IDENT) {
         auto Names = std::vector<std::string> { getLexeme().IdentifierStr };
-        while (NextLexeme.K == Lexeme::Kind::IDENT)
+        while (NextLexeme.Char == ',') {
+            getLexeme();
+            if (NextLexeme.K != Lexeme::Kind::IDENT)
+                return LogError(NextLexeme.Loc, "Expecting a variable name after a comma");
             Names.push_back(getLexeme().IdentifierStr);
+        }
         if (NextLexeme.Char != ':')
             return LogError(NextLexeme.Loc, "Expecting a ':' in variable declaration");
         getLexeme();
