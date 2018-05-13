@@ -157,17 +157,12 @@ Lexeme Lexer::readOperator() {
             else
                 L = Lexeme(Lexeme::Kind::UNKNOWN, ':', getLoc());
             break;
-        case '!':
-            readChar();
-            if (LastChar == '=')
-                L = Lexeme(Lexeme::Kind::NEQ, getLoc());
-            else
-                L = Lexeme(Lexeme::Kind::UNKNOWN, getLoc());
-            break;
         case '<':
             readChar();
             if (LastChar == '=')
                 L = Lexeme(Lexeme::Kind::LTE, getLoc());
+            if (LastChar == '>')
+                L = Lexeme(Lexeme::Kind::NEQ, getLoc());
             else
                 L = Lexeme(Lexeme::Kind::LT, getLoc());
             break;
