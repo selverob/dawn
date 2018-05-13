@@ -59,6 +59,8 @@ std::ostream &operator<<(std::ostream &Stream, const Lexeme::Kind &K) {
         case Lexeme::Kind::NUMBER: Stream << "NUMBER"; break;
         case Lexeme::Kind::IDENT: Stream << "IDENT"; break;
         case Lexeme::Kind::FORWARD: Stream << "FORWARD"; break;
+        case Lexeme::Kind::OF: Stream << "OF"; break;
+        case Lexeme::Kind::ARRAY: Stream << "ARRAY"; break;
     }
     return Stream;
 }
@@ -74,6 +76,8 @@ std::ostream &operator<<(std::ostream &Stream, const Lexeme &L) {
             break;
         case Lexeme::Kind ::NUMBER:
             Stream << ' ' << L.NumericValue;
+            break;
+        default:
             break;
     }
     return Stream;

@@ -17,14 +17,14 @@ namespace ast {
     class Prototype : public Node {
     public:
         std::string Name;
-        std::string ReturnType;
-        std::vector<std::pair<std::string, std::string>> Parameters;
+        Type* ReturnType;
+        std::vector<std::pair<std::string, Type*>> Parameters;
 
-        Prototype(llvm::SMLoc Loc, std::string Name, std::string ReturnType) :
-                Node(Loc), Name(std::move(Name)), ReturnType(std::move(ReturnType)) {}
+        Prototype(llvm::SMLoc Loc, std::string Name, Type* ReturnType) :
+                Node(Loc), Name(std::move(Name)), ReturnType(ReturnType) {}
 
-        void addParameter(std::string Name, std::string Type) {
-            Parameters.emplace_back(Name, Type);
+        void addParameter(std::string Name, Type* ParamType) {
+            Parameters.emplace_back(Name, ParamType);
         }
 
         void accept(Visitor &V) override {

@@ -15,12 +15,14 @@
 #include "ast/Parser.h"
 #include "ast/Printer.h"
 #include "codegen/Codegen.h"
+#include "ast/type/Void.h"
+#include "ast/type/Integer.h"
 
 llvm::StringMap<ast::Prototype*> getStdProtos() {
     llvm::StringMap<ast::Prototype*> Protos;
-    Protos["writeln"] = new ast::Prototype(llvm::SMLoc(), std::string("writeln"), "void");
-    Protos["writeln"]->addParameter("n", "integer");
-    Protos["readln"] = new ast::Prototype(llvm::SMLoc(), std::string("readln"), "integer");
+    Protos["writeln"] = new ast::Prototype(llvm::SMLoc(), std::string("writeln"), ast::Void::get());
+    Protos["writeln"]->addParameter("n", ast::Integer::get());
+    Protos["readln"] = new ast::Prototype(llvm::SMLoc(), std::string("readln"), ast::Integer::get());
     return Protos;
 }
 

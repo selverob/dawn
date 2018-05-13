@@ -32,7 +32,7 @@ namespace ast {
                 Constants(std::make_unique<Consts>(Loc)) {}
 
         void addVariables(std::unique_ptr<Vars> V) {
-            for (const auto &Var : V->Variables) {
+            for (auto &Var : V->Variables) {
                 Variables->addVar(Var.first, Var.second);
             }
         }

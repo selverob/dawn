@@ -49,6 +49,8 @@ struct Lexeme {
         NUMBER,
         IDENT,
         FORWARD,
+        OF,
+        ARRAY,
     };
 
     Kind K;

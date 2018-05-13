@@ -45,6 +45,8 @@ namespace ast {
         std::unique_ptr<Expr> parseParenExpr();
         std::unique_ptr<Expr> parseExpr();
 
+        Type *parseType();
+
 
         Lexeme getLexeme();
 

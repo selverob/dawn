@@ -93,6 +93,8 @@ Lexeme Lexer::readIdentifier() {
             .Case("not", Lexeme::Kind::NOT)
             .Case("mod", Lexeme::Kind::MOD)
             .Case("forward", Lexeme::Kind::FORWARD)
+            .Case("of", Lexeme::Kind::OF)
+            .Case("array", Lexeme::Kind::ARRAY)
             .Default(Lexeme::Kind::IDENT);
     if (Kind == Lexeme::Kind::IDENT) {
         return Lexeme(Kind, Identifier, Loc);

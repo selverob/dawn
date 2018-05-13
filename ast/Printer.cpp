@@ -18,6 +18,9 @@
 #include "decl/Vars.h"
 #include "decl/Function.h"
 #include "decl/Program.h"
+#include "type/Integer.h"
+#include "type/Array.h"
+#include "type/Void.h"
 
 ast::Printer::Printer(llvm::raw_ostream &Out): Out(Out), Indendation(0) {}
 
@@ -147,7 +150,7 @@ void ast::Printer::visit(ast::WhileStmt &E) {
 }
 
 void ast::Printer::visit(ast::Consts &E) {
-    if (E.Constants.size() == 0)
+    if (E.Constants.empty() == 0)
         return;
     Out << "const\n";
     Indendation++;
@@ -160,15 +163,16 @@ void ast::Printer::visit(ast::Consts &E) {
 void ast::Printer::printPrototype(ast::Prototype &E) {
     Out << "function " << E.Name << "(";
     for (size_t i = 0; i < E.Parameters.size(); i++) {
-        Out << E.Parameters[i].first
-            << ": "
-            << E.Parameters[i].second;
+        Out << E.Parameters[i].first << ": ";
+        printType(E.Parameters[i].second);
         if (i < E.Parameters.size() - 1)
             Out << "; ";
     }
     Out << ")";
-    if (E.ReturnType != "void")
-        Out << ": " << E.ReturnType;
+    if (!llvm::isa<Void>(E.ReturnType)) {
+        Out << ": ";
+        printType(E.ReturnType);
+    }
     Out << ';';
 }
 
@@ -206,12 +210,15 @@ void ast::Printer::visit(ast::Program &E) {
 }
 
 void ast::Printer::visit(ast::Vars &E) {
-    if (E.Variables.size() == 0)
+    if (E.Variables.empty() == 0)
         return;
     Out << "var\n";
     Indendation++;
     for (const auto &V : E.Variables) {
-        printIndentation(); Out << V.first << ": " << V.second << ";\n";
+        printIndentation();
+        Out << V.first << ": ";
+        printType(V.second);
+        Out << ";\n";
     }
     Indendation--;
 }
@@ -219,5 +226,14 @@ void ast::Printer::visit(ast::Vars &E) {
 void ast::Printer::printIndentation() {
     for (int i = 0; i < Indendation; i++) {
         Out << '\t';
+    }
+}
+
+void ast::Printer::printType(ast::Type *T) {
+    if (llvm::isa<Integer>(T)) {
+        Out << "integer";
+    } else if (auto *Arr = llvm::dyn_cast<Array>(T)) {
+        Out << "array [" << Arr->From << " .. " << Arr->To << "] of ";
+        printType(Arr->ElemType);
     }
 }

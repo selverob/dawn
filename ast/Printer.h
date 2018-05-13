@@ -9,6 +9,7 @@
 #include "Visitor.h"
 #include "llvm/Support/raw_ostream.h"
 #include "../lex/Lexeme.h"
+#include "type/Type.h"
 
 namespace ast {
     class Printer : public Visitor {
@@ -17,6 +18,7 @@ namespace ast {
 
         void printOperator(Lexeme::Kind K);
         void printPrototype(Prototype &E);
+        void printType(Type *T);
         void printIndentation();
     public:
         Printer(llvm::raw_ostream &Out);

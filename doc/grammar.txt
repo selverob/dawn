@@ -15,7 +15,6 @@ statement =
     'exit' |
     function-call
 
--- VARIANT 2 - operator precedence parsing --
 expression =
     identifier-expression |
     literal |
@@ -27,8 +26,6 @@ identifier-expression =
     var-ident |
     function-ident '(' [expression {',' expression}] ')'
 
--------
-
 function-call = function-ident '(' [expression {',' expression}] ')'
 
 compound-statement = 'begin' {statement ';'} 'end'
@@ -37,5 +34,5 @@ for-operator = 'to' | 'downto'
 program-ident = ident
 var-ident = ident
 function-ident = ident
-type-name = 'integer'
+type-name = 'integer' | 'array' '[' number '..' number ']' 'of' type-name
 literal = number

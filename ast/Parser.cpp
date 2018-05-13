@@ -15,6 +15,9 @@
 #include "stmt/ForStmt.h"
 #include "stmt/IfStmt.h"
 #include "stmt/WhileStmt.h"
+#include "type/Integer.h"
+#include "type/Array.h"
+#include "type/Void.h"
 
 ast::Parser::Parser(llvm::SourceMgr &Sources, Lexer Lexer) : Sources(Sources), L(std::move(Lexer)),
                                                              NextLexeme(L.getLexeme()), Precedences(11) {
@@ -301,7 +304,7 @@ std::unique_ptr<ast::Prototype> ast::Parser::parsePrototype() {
     if (NextLexeme.K != Lexeme::Kind::LPAR)
         return LogError(NextLexeme.Loc, "Expecting a '(' in function declaration");
     getLexeme();
-    auto Proto = std::make_unique<ast::Prototype>(StartingLoc, Name, "void");
+    auto Proto = std::make_unique<ast::Prototype>(StartingLoc, Name, Void::get());
     while (NextLexeme.K != Lexeme::Kind::RPAR) {
         if (NextLexeme.K != Lexeme::Kind::IDENT)
             return LogError(NextLexeme.Loc, "Expecting parameter name in function declaration");
@@ -309,9 +312,9 @@ std::unique_ptr<ast::Prototype> ast::Parser::parsePrototype() {
         if (NextLexeme.Char != ':')
             return LogError(NextLexeme.Loc, "Expecting ':' in function declaration");
         getLexeme();
-        if (NextLexeme.K != Lexeme::Kind::IDENT)
-            return LogError(NextLexeme.Loc, "Expecting type name in function declaration");
-        auto Type = getLexeme().IdentifierStr;
+        auto Type = parseType();
+        if (Type == nullptr)
+            return nullptr;
         Proto->addParameter(Name, Type);
         if (NextLexeme.Char == ';')
             getLexeme();
@@ -321,9 +324,10 @@ std::unique_ptr<ast::Prototype> ast::Parser::parsePrototype() {
     getLexeme();
     if (NextLexeme.Char == ':') {
         getLexeme();
-        if (NextLexeme.K != Lexeme::Kind::IDENT)
-            return LogError(NextLexeme.Loc, "Function declaration missing a return type");
-        Proto->ReturnType = getLexeme().IdentifierStr;
+        auto ReturnType = parseType();
+        if (ReturnType == nullptr)
+            return nullptr;
+        Proto->ReturnType = ReturnType;
     }
     if (NextLexeme.Char != ';')
         return LogError(NextLexeme.Loc, "Function declarations must end with a ';'");
@@ -366,10 +370,11 @@ std::unique_ptr<ast::Vars> ast::Parser::parseVars() {
         if (NextLexeme.Char != ':')
             return LogError(NextLexeme.Loc, "Expecting a ':' in variable declaration");
         getLexeme();
-        if (NextLexeme.K != Lexeme::Kind::IDENT)
-            return LogError(NextLexeme.Loc, "Expecting a type name in variable declaration");
+        auto VarType = parseType();
+        if (VarType == nullptr)
+            return nullptr;
         for (const auto &Name : Names)
-            V->addVar(Name, NextLexeme.IdentifierStr);
+            V->addVar(Name, VarType);
         getLexeme();
         if (NextLexeme.Char != ';')
             return LogError(NextLexeme.Loc, "Expecting a ';' in variable declaration");
@@ -421,7 +426,6 @@ std::unique_ptr<ast::Program> ast::Parser::parse() {
         }
     }
 
-
     auto Body = parseStmt();
     if (!Body)
         return nullptr;
@@ -431,4 +435,38 @@ std::unique_ptr<ast::Program> ast::Parser::parse() {
         return LogError(NextLexeme.Loc, "Program must be terminated with a '.'");
     getLexeme();
     return Program;
+}
+
+ast::Type *ast::Parser::parseType() {
+    if (NextLexeme.K == Lexeme::Kind::IDENT) {
+        if (NextLexeme.IdentifierStr == "integer") {
+            return Integer::get();
+        } else {
+            return (ast::Type*) LogError(getLexeme().Loc, "Invalid bare type name");
+        }
+    } else if (NextLexeme.K == Lexeme::Kind::ARRAY) {
+        if (NextLexeme.Char != '[')
+            return (ast::Type*) LogError(getLexeme().Loc, "Expecting a '[' in array declaration");
+        getLexeme();
+        if (NextLexeme.K != Lexeme::Kind::NUMBER)
+            return (ast::Type*) LogError(getLexeme().Loc, "Expecting an array lower bound in array declaration");
+        auto Lower = getLexeme().NumericValue;
+        for (int i = 0; i < 2; i++) {
+            if (NextLexeme.Char != '.')
+                return (ast::Type*) LogError(getLexeme().Loc, "Expecting a '..' in array declaration");
+            getLexeme();
+        }
+        if (NextLexeme.K != Lexeme::Kind::NUMBER)
+            return (ast::Type*) LogError(getLexeme().Loc, "Expecting an array upper bound in array declaration");
+        auto Upper = getLexeme().NumericValue;
+        if (NextLexeme.K != Lexeme::Kind::OF)
+            return (ast::Type*) LogError(getLexeme().Loc, "Expecting an 'of' keyword denoting array element type");
+        getLexeme();
+        auto ElementType = parseType();
+        if (ElementType == nullptr)
+            return nullptr;
+        return Array::get(ElementType, Lower, Upper);
+    } else {
+        return (ast::Type*) LogError(getLexeme().Loc, "Invalid type name");
+    }
 }
