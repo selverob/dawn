@@ -1,7 +1,7 @@
 program = 'program' program-ident ';' [const-decl] [var-decl] {function} statement '.'
 
-const-decl = 'const' var-ident '=' literal ';' {var-ident '=' literal ';'}
-var-decl = 'var' var-ident {',' var-ident} ':' type-name ';' {var-ident {',' var-ident} ':' type-name ';'}
+const-decl = 'const' ident '=' literal ';' {ident '=' literal ';'}
+var-decl = 'var' ident {',' ident} ':' type-name ';' {ident {',' ident} ':' type-name ';'}
 
 function = function-decl ('forward' | [var-decl] statement) ';'
 function-decl = 'function' function-ident '(' [var-ident ':' type-name { ',' var-ident ':' type-name}] ')' [':', type-name] ';'
@@ -32,7 +32,8 @@ compound-statement = 'begin' {statement ';'} 'end'
 
 for-operator = 'to' | 'downto'
 program-ident = ident
-var-ident = ident
+var-ident = ident | [ '[' expression ']' ]
 function-ident = ident
-type-name = 'integer' | 'array' '[' number '..' number ']' 'of' type-name
+type-name = 'integer' | 'array' '[' expression '..' expression ']' 'of' type-name
+array-bound = [ '-' ] number | ident
 literal = number

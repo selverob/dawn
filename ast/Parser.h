@@ -13,6 +13,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 #include "decl/Program.h"
+#include "type/ArrayBound.h"
 
 namespace ast {
     class Parser {
@@ -46,6 +47,7 @@ namespace ast {
         std::unique_ptr<Expr> parseExpr();
 
         Type *parseType();
+        ArrayBound *parseArrayBound();
 
 
         Lexeme getLexeme();

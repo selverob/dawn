@@ -6,6 +6,7 @@
 #define DAWN_VOID_H
 
 #include <llvm/Support/SMLoc.h>
+#include <llvm/IR/Type.h>
 #include "Type.h"
 
 namespace ast {
@@ -18,6 +19,8 @@ namespace ast {
         bool operator==(const Type &Other) override {
             return llvm::isa<Void>(Other);
         }
+
+        bool isLLVMType(llvm::Type *T) override;
 
         static Void *get();
 

@@ -6,6 +6,7 @@
 #define DAWN_INTEGER_H
 
 #include <llvm/Support/SMLoc.h>
+#include <llvm/IR/Type.h>
 #include "Type.h"
 
 namespace ast {
@@ -22,6 +23,8 @@ namespace ast {
         static Integer *get();
 
         static bool classof(const Type *T);
+
+        bool isLLVMType(llvm::Type *T) override;
     };
 }
 

@@ -6,6 +6,7 @@
 #define DAWN_TYPE_H
 
 #include "llvm/Support/Casting.h"
+#include "llvm/IR/Type.h"
 #include "../Node.h"
 
 namespace ast {
@@ -23,6 +24,8 @@ namespace ast {
         virtual bool operator!= (const Type &Other) {
             return !(*this == Other);
         }
+
+        virtual bool isLLVMType(llvm::Type *T) = 0;
     };
 }
 

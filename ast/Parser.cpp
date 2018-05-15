@@ -18,6 +18,8 @@
 #include "type/Integer.h"
 #include "type/Array.h"
 #include "type/Void.h"
+#include "type/IdentifierArrayBound.h"
+#include "type/NumericArrayBound.h"
 
 ast::Parser::Parser(llvm::SourceMgr &Sources, Lexer Lexer) : Sources(Sources), L(std::move(Lexer)),
                                                              NextLexeme(L.getLexeme()), Precedences(11) {
@@ -375,7 +377,6 @@ std::unique_ptr<ast::Vars> ast::Parser::parseVars() {
             return nullptr;
         for (const auto &Name : Names)
             V->addVar(Name, VarType);
-        getLexeme();
         if (NextLexeme.Char != ';')
             return LogError(NextLexeme.Loc, "Expecting a ';' in variable declaration");
         getLexeme();
@@ -440,25 +441,26 @@ std::unique_ptr<ast::Program> ast::Parser::parse() {
 ast::Type *ast::Parser::parseType() {
     if (NextLexeme.K == Lexeme::Kind::IDENT) {
         if (NextLexeme.IdentifierStr == "integer") {
+            getLexeme();
             return Integer::get();
         } else {
             return (ast::Type*) LogError(getLexeme().Loc, "Invalid bare type name");
         }
     } else if (NextLexeme.K == Lexeme::Kind::ARRAY) {
+        getLexeme();
         if (NextLexeme.Char != '[')
             return (ast::Type*) LogError(getLexeme().Loc, "Expecting a '[' in array declaration");
         getLexeme();
-        if (NextLexeme.K != Lexeme::Kind::NUMBER)
-            return (ast::Type*) LogError(getLexeme().Loc, "Expecting an array lower bound in array declaration");
-        auto Lower = getLexeme().NumericValue;
+        auto Lower = parseArrayBound();
         for (int i = 0; i < 2; i++) {
             if (NextLexeme.Char != '.')
                 return (ast::Type*) LogError(getLexeme().Loc, "Expecting a '..' in array declaration");
             getLexeme();
         }
-        if (NextLexeme.K != Lexeme::Kind::NUMBER)
-            return (ast::Type*) LogError(getLexeme().Loc, "Expecting an array upper bound in array declaration");
-        auto Upper = getLexeme().NumericValue;
+        auto Upper = parseArrayBound();
+        if (NextLexeme.Char != ']')
+            return (ast::Type*) LogError(getLexeme().Loc, "Expecting a ']' in array declaration");
+        getLexeme();
         if (NextLexeme.K != Lexeme::Kind::OF)
             return (ast::Type*) LogError(getLexeme().Loc, "Expecting an 'of' keyword denoting array element type");
         getLexeme();
@@ -469,4 +471,19 @@ ast::Type *ast::Parser::parseType() {
     } else {
         return (ast::Type*) LogError(getLexeme().Loc, "Invalid type name");
     }
+}
+
+ast::ArrayBound *ast::Parser::parseArrayBound() {
+    if (NextLexeme.K == Lexeme::Kind::IDENT) {
+        return new IdentifierArrayBound(getLexeme().IdentifierStr);
+    }
+    int Coefficient = 1;
+    if (NextLexeme.K == Lexeme::Kind::MINUS) {
+        getLexeme();
+        Coefficient = -1;
+    }
+    if (NextLexeme.K == Lexeme::Kind::NUMBER) {
+        return new NumericArrayBound((int) getLexeme().NumericValue * Coefficient);
+    }
+    return (ArrayBound *) LogError(NextLexeme.Loc, "Invalid token in array type");
 }
