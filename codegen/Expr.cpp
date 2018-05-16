@@ -1,6 +1,7 @@
 //
 // Created by selvek on 15.5.2018.
 //
+#include <llvm/ADT/APSInt.h>
 #include "../ast/expr/NumExpr.h"
 #include "../ast/expr/VarExpr.h"
 #include "../ast/expr/UnaryOpExpr.h"
@@ -8,6 +9,7 @@
 #include "../ast/expr/CallExpr.h"
 #include "Codegen.h"
 #include "../ast/expr/ArrayIdxExpr.h"
+#include "../ast/type/Integer.h"
 
 void codegen::Codegen::visit(ast::BinaryOpExpr &E) {
     E.L->accept(*this);
@@ -93,23 +95,23 @@ void codegen::Codegen::visit(ast::UnaryOpExpr &E) {
 }
 
 void codegen::Codegen::visit(ast::VarExpr &E) {
-    llvm::Value *V = NamedValues[E.VarName];
-    if (V) {
-        LastValue = Builder.CreateLoad(V, E.VarName.c_str());
+    std::pair<ast::Type *, llvm::Value*> ValInfo;
+    if (NamedValues.count(E.VarName)) {
+        ValInfo = NamedValues[E.VarName];
+    } else if (Globals.count(E.VarName)) {
+        ValInfo = Globals[E.VarName];
+    } else if (Constants.count(E.VarName)) {
+        LastValue = Constants[E.VarName];
         return;
+    } else {
+        return LogError(E.Loc, "Accessing an undeclared variable");
     }
 
-    V = Module.getNamedGlobal(E.VarName);
-    if (V) {
-        LastValue = Builder.CreateLoad(V, E.VarName.c_str());
-        return;
+    if (ValInfo.first != ast::Integer::get()) {
+        return LogError(E.Loc, "Trying to treat array as a value");
     }
 
-    llvm::Constant *C = Constants[E.VarName];
-    if (!C) {
-        return LogError(E.Loc, "Undeclared variable used");
-    }
-    LastValue = C;
+    LastValue = Builder.CreateLoad(ValInfo.second);
 }
 
 void codegen::Codegen::generateICmp(llvm::CmpInst::Predicate Pred, llvm::Value *LHS, llvm::Value *RHS) {
@@ -164,23 +166,30 @@ void codegen::Codegen::callFn(ast::CallExpr &C) {
 
 
 void codegen::Codegen::visit(ArrayIdxExpr &E) {
-    llvm::Value *ArrPtr;
-    ArrPtr = NamedValues[E.VarName];
-    if (!ArrPtr) {
-        ArrPtr = Module.getNamedGlobal(E.VarName);
+    std::pair<ast::Type *, llvm::Value*> ValInfo;
+    if (NamedValues.count(E.VarName)) {
+        ValInfo = NamedValues[E.VarName];
+    } else if (Globals.count(E.VarName)) {
+        ValInfo = Globals[E.VarName];
+    } else {
+        return LogError(E.Loc, "Accessing an undeclared variable");
     }
 
-    if (!ArrPtr)
-        return LogError(E.Loc, "Indexing an unknown variable");
+    if (!llvm::isa<ast::Array>(ValInfo.first)) {
+        return LogError(E.Loc, "Trying to index a value as an array");
+    }
 
+    auto ArrStart = llvm::cast<ast::Array>(ValInfo.first)->From->value();
+    auto ArrStartConstant = llvm::ConstantInt::get(Module.getContext(), llvm::APSInt::get(ArrStart));
     //TODO: Add type checking
     E.Idx->accept(*this);
     if (!LastValue)
         return;
+    auto *Idx = Builder.CreateSub(LastValue, ArrStartConstant);
     llvm::Value *Idxs[] = {
             llvm::ConstantInt::get(llvm::Type::getInt64Ty(Module.getContext()), 0),
-            LastValue
+            Idx
     };
-    auto *ElemPtr = Builder.CreateGEP(ArrPtr, Idxs,"arridx");
+    auto *ElemPtr = Builder.CreateGEP(ValInfo.second, Idxs,"arridx");
     LastValue = Builder.CreateLoad(ElemPtr, "arridxld");
 }

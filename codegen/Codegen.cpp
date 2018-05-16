@@ -7,6 +7,7 @@
 #include "../ast/expr/Lvalue.h"
 #include "../ast/expr/ArrayIdxExpr.h"
 #include "../ast/expr/VarExpr.h"
+#include "llvm/ADT/APSInt.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Function.h"
@@ -34,20 +35,33 @@ bool codegen::Codegen::finishedSuccesfully() const {
 
 llvm::Value *codegen::Codegen::getLvalueAddress(ast::Lvalue *Val) {
     llvm::Value *Ptr;
-    Ptr = NamedValues[Val->Ident()];
-    if (!Ptr)
-        Ptr = Module.getNamedGlobal(Val->Ident());
-    if (!Ptr)
-        return nullptr;
+    std::pair<ast::Type *, llvm::Value*> ValInfo;
+    if (NamedValues.count(Val->Ident())) {
+        ValInfo = NamedValues[Val->Ident()];
+    } else {
+        if (Globals.count(Val->Ident()))
+            ValInfo = Globals[Val->Ident()];
+        else
+            return nullptr;
+    }
     if (auto *ArrIdxExpr = llvm::dyn_cast<ast::ArrayIdxExpr>(Val)) {
+        if (!llvm::isa<ast::Array>(ValInfo.first)) {
+            LogError(Val->Loc, "Trying to index a scalar variable");
+            return nullptr;
+        }
+        auto ArrStart = llvm::cast<ast::Array>(ValInfo.first)->From->value();
+        auto ArrStartConstant = llvm::ConstantInt::get(Module.getContext(), llvm::APSInt::get(ArrStart));
         ArrIdxExpr->Idx->accept(*this);
         if (LastValue == nullptr)
             return nullptr;
+        auto *Idx = Builder.CreateSub(LastValue, ArrStartConstant);
         llvm::Value *Idxs[] = {
             llvm::ConstantInt::get(llvm::Type::getInt64Ty(Module.getContext()), 0),
-            LastValue
+            Idx
         };
-        Ptr = Builder.CreateGEP(Ptr, Idxs,"arridx");
+        Ptr = Builder.CreateGEP(ValInfo.second, Idxs, "arridx");
+    } else {
+        Ptr = ValInfo.second;
     }
     return Ptr;
 }

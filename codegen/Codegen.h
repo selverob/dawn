@@ -28,7 +28,8 @@ namespace codegen {
         llvm::Module &Module;
         llvm::IRBuilder<> Builder;
         std::unique_ptr<llvm::legacy::FunctionPassManager> FPM;
-        llvm::StringMap<llvm::AllocaInst*> NamedValues;
+        llvm::StringMap<std::pair<ast::Type*, llvm::AllocaInst*>> NamedValues;
+        llvm::StringMap<std::pair<ast::Type*, llvm::GlobalVariable*>> Globals;
         llvm::StringMap<ast::Prototype*> Prototypes;
         llvm::StringMap<llvm::Constant*> Constants;
         llvm::SourceMgr &Sources;
@@ -42,7 +43,7 @@ namespace codegen {
             Finished = false;
         }
 
-        llvm::AllocaInst *createAlloca(llvm::Function *F, llvm::StringRef VarName, llvm::Type *VarType);
+        llvm::Error createAlloca(llvm::Function *F, llvm::StringRef VarName, ast::Type *VarType);
         void lookupFunction(llvm::StringRef Name);
 
         void generatePrototype(Prototype& P);
@@ -50,7 +51,7 @@ namespace codegen {
         void generateLogical(Lexeme::Kind Op, llvm::Value *LHS, llvm::Value *RHS);
         void callFn(ast::CallExpr &C);
 
-        llvm::Type *getLLVMType(llvm::SMLoc Loc, ast::Type *T);
+        llvm::Expected<llvm::Type*> getLLVMType(ast::Type *T);
         llvm::Value *createZeroInitializer(llvm::IRBuilder<> &B, llvm::AllocaInst *Alloca);
 
         llvm::Value *getLvalueAddress(ast::Lvalue *Val);

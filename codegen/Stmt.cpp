@@ -9,6 +9,7 @@
 #include "../ast/stmt/IfStmt.h"
 #include "../ast/stmt/WhileStmt.h"
 #include "../ast/stmt/ForStmt.h"
+#include "../ast/type/Integer.h"
 
 void codegen::Codegen::visit(ast::AssignmentStmt &E) {
     auto Ptr = getLvalueAddress(E.Lval.get());
@@ -49,13 +50,20 @@ void codegen::Codegen::visit(ast::ExitStmt &E) {
 }
 
 void codegen::Codegen::visit(ast::ForStmt &E) {
-    auto IterVar = NamedValues[E.Var];
-    if (!IterVar)
-        return LogError(E.Loc, "Iteration variable was not declared");
+    std::pair<ast::Type *, llvm::Value*> IterVar;
+    if (NamedValues.count(E.Var)) {
+        IterVar = NamedValues[E.Var];
+    } else if (Globals.count(E.Var)) {
+        IterVar = Globals[E.Var];
+    } else {
+        return LogError(E.Loc, "Accessing an undeclared variable");
+    }
+    if (IterVar.first != ast::Integer::get())
+        return LogError(E.Loc, "Iteration variables must be integers");
     E.Begin->accept(*this);
     if (LastValue == nullptr)
         return;
-    Builder.CreateStore(LastValue, IterVar);
+    Builder.CreateStore(LastValue, IterVar.second);
     E.End->accept(*this);
     if (LastValue == nullptr)
         return;
@@ -68,9 +76,9 @@ void codegen::Codegen::visit(ast::ForStmt &E) {
     Builder.SetInsertPoint(IterBB);
     llvm::Value *Condition;
     if (E.Operator == Lexeme::Kind::TO) {
-        Condition = Builder.CreateICmpSLT(Builder.CreateLoad(IterVar, "iterationvar"), FinalVal);
+        Condition = Builder.CreateICmpSLT(Builder.CreateLoad(IterVar.second, "iterationvar"), FinalVal);
     } else if (E.Operator == Lexeme::Kind::DOWNTO) {
-        Condition = Builder.CreateICmpSGT(Builder.CreateLoad(IterVar, "iterationvar"), FinalVal);
+        Condition = Builder.CreateICmpSGT(Builder.CreateLoad(IterVar.second, "iterationvar"), FinalVal);
     } else {
         llvm_unreachable("Invalid operand in for");
     }
@@ -80,7 +88,7 @@ void codegen::Codegen::visit(ast::ForStmt &E) {
     E.Body->accept(*this);
     if (LastValue == nullptr)
         return;
-    llvm::Value *LoadedIterVar = Builder.CreateLoad(IterVar, "iterationvar");
+    llvm::Value *LoadedIterVar = Builder.CreateLoad(IterVar.second, "iterationvar");
     llvm::Value *NewIterVarValue = nullptr;
     if (E.Operator == Lexeme::Kind::TO) {
         NewIterVarValue = Builder.CreateAdd(
@@ -89,7 +97,7 @@ void codegen::Codegen::visit(ast::ForStmt &E) {
         NewIterVarValue = Builder.CreateSub(
                 LoadedIterVar, llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 1, true)));
     }
-    Builder.CreateStore(NewIterVarValue, IterVar);
+    Builder.CreateStore(NewIterVarValue, IterVar.second);
     Builder.CreateBr(IterBB);
     Builder.SetInsertPoint(AfterBB);
 }

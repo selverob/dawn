@@ -34,28 +34,34 @@ void codegen::Codegen::visit(ast::Function &E) {
     llvm::BasicBlock *Body = llvm::BasicBlock::Create(Module.getContext(), "entry", F);
     Builder.SetInsertPoint(Body);
 
-    llvm::StringMap<llvm::AllocaInst *> OldNamedValues;
+    llvm::StringMap<std::pair<ast::Type*, llvm::AllocaInst *>> OldNamedValues;
     std::swap(NamedValues, OldNamedValues);
+    size_t i = 0;
     for (auto &Arg : F->args()) {
-        auto *Alloca = createAlloca(F, Arg.getName(), Arg.getType());
-        Builder.CreateStore(&Arg, Alloca);
+        auto &Param = E.Proto->Parameters[i];
+        auto Err = createAlloca(F, Param.first, Param.second);
+        assert(Err.success());
+        Builder.CreateStore(&Arg, NamedValues[Param.first].second);
+        i++;
     }
 
     for (const auto &VarInfo : E.Variables->Variables) {
-        auto LLVMType = getLLVMType(E.Variables->Loc, VarInfo.second);
-        if (!LLVMType)
-            return;
-        createAlloca(F, VarInfo.first, LLVMType);
+        auto Err = createAlloca(F, VarInfo.first, VarInfo.second);
+        if (Err) {
+            return LogError(E.Variables->Loc, llvm::Twine("Invalid declaration of variable", VarInfo.first).getSingleStringRef());
+        }
     }
 
     if (!llvm::isa<ast::Void>(E.Proto->ReturnType)) {
-        createAlloca(F, F->getName(), F->getReturnType());
+        llvm::Error Err = createAlloca(F, F->getName(), E.Proto->ReturnType);
+        if (Err)
+            return LogError(E.Loc, "Couldn't create return type allocation");
     }
 
     llvm::BasicBlock *RetBlock = llvm::BasicBlock::Create(Module.getContext(), "return", F);
     Builder.SetInsertPoint(RetBlock);
     if (!llvm::isa<ast::Void>(E.Proto->ReturnType)) {
-        auto ReturnResult = Builder.CreateLoad(NamedValues[F->getName()]);
+        auto ReturnResult = Builder.CreateLoad(NamedValues[F->getName()].second);
         Builder.CreateRet(ReturnResult);
     } else {
         Builder.CreateRetVoid();
@@ -100,10 +106,20 @@ void codegen::Codegen::visit(ast::Program &E) {
 
 void codegen::Codegen::visit(ast::Vars &E) {
     for (auto &Var : E.Variables) {
-        Module.getOrInsertGlobal(Var.first, Builder.getInt64Ty());
+        auto LLVMType = getLLVMType(Var.second);
+        if (!LLVMType)
+            return LogError(E.Loc, "Unable to generate type for a variable");
+        Module.getOrInsertGlobal(Var.first, *LLVMType);
         auto GlobalVar = Module.getNamedGlobal(Var.first);
         GlobalVar->setLinkage(llvm::GlobalValue::InternalLinkage);
-        GlobalVar->setInitializer(llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0)));
+        if (llvm::isa<ast::Integer>(Var.second)) {
+            GlobalVar->setInitializer(llvm::ConstantInt::get(Module.getContext(), llvm::APInt(64, 0)));
+        } else if (llvm::isa<ast::Array>(Var.second)) {
+            GlobalVar->setInitializer(llvm::ConstantAggregateZero::get(*LLVMType));
+        } else {
+            return LogError(E.Loc, "Invalid variable type");
+        }
+        Globals[Var.first] = std::pair(Var.second, GlobalVar);
     }
 }
 
@@ -129,27 +145,31 @@ void codegen::Codegen::generatePrototype(ast::Prototype &P) {
     LastValue = F;
 }
 
-llvm::AllocaInst *codegen::Codegen::createAlloca(llvm::Function *F, llvm::StringRef VarName, llvm::Type *VarType) {
+llvm::Error codegen::Codegen::createAlloca(llvm::Function *F, llvm::StringRef VarName, ast::Type *VarType) {
     llvm::IRBuilder<> B(&F->getEntryBlock(), F->getEntryBlock().begin());
-    auto *Alloca = B.CreateAlloca(VarType, nullptr, VarName);
+    auto LLVMType = getLLVMType(VarType);
+    if (auto Err = LLVMType.takeError())
+        return Err;
+    auto *Alloca = B.CreateAlloca(*LLVMType, nullptr, VarName);
     createZeroInitializer(B, Alloca);
-    NamedValues[VarName] = Alloca;
-    return Alloca;
+    NamedValues[VarName] = std::pair(VarType, Alloca);
+    return llvm::Error::success();
 }
 
 
-llvm::Type *codegen::Codegen::getLLVMType(llvm::SMLoc Loc, ast::Type *T) {
+llvm::Expected<llvm::Type*> codegen::Codegen::getLLVMType(ast::Type *T) {
     if (llvm::isa<ast::Integer>(T))
         return llvm::Type::getInt64Ty(Module.getContext());
     if (llvm::isa<ast::Void>(T))
         return llvm::Type::getVoidTy(Module.getContext());
     if (auto *Arr = llvm::dyn_cast<ast::Array>(T)) {
         auto Err = addConstantBoundsToArray(Arr);
-        if (Err) {
-            LogError(Loc, "Unknown constant in array bounds");
-            return nullptr;
-        }
-        return llvm::ArrayType::get(getLLVMType(Loc, Arr->ElemType), (uint64_t) Arr->size());
+        if (Err)
+            return Err;
+        llvm::Expected<llvm::Type*> ElemType = getLLVMType(Arr->ElemType);
+        if (!ElemType)
+            return ElemType;
+        return llvm::ArrayType::get(ElemType.get(), (uint64_t) Arr->size());
     }
     llvm_unreachable("Unknown type converted to LLVM representation");
 }
