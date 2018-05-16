@@ -40,7 +40,7 @@ void codegen::Codegen::visit(ast::Function &E) {
     for (auto &Arg : F->args()) {
         auto &Param = E.Proto->Parameters[i];
         auto Err = createAlloca(F, Param.first, Param.second);
-        assert(Err.success());
+        assert(!Err);
         Builder.CreateStore(&Arg, NamedValues[Param.first].second);
         i++;
     }
