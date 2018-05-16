@@ -16,6 +16,6 @@ extern void writeln(long n) {
     printf(\"%ld\n\", n);
 }"
 
-echo "$STDLIB" | clang -o"$2" -std=c99 dawntmp.o -xc -
+echo "$STDLIB" | clang -no-pie -o"$2" -std=c99 dawntmp.o -xc -
 
 rm dawntmp.o
