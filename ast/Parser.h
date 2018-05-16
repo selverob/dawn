@@ -14,6 +14,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "decl/Program.h"
 #include "type/ArrayBound.h"
+#include "expr/Lvalue.h"
 
 namespace ast {
     class Parser {
@@ -45,6 +46,8 @@ namespace ast {
         std::unique_ptr<Expr> parseUnaryOpExpr();
         std::unique_ptr<Expr> parseParenExpr();
         std::unique_ptr<Expr> parseExpr();
+
+        std::unique_ptr<ast::Lvalue> parseArrayIdx(std::string Ident);
 
         Type *parseType();
         ArrayBound *parseArrayBound();

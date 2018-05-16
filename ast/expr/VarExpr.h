@@ -9,17 +9,26 @@
 
 #include "Expr.h"
 #include "../Visitor.h"
+#include "Lvalue.h"
 
 namespace ast {
-    class VarExpr : public Expr {
+    class VarExpr : public Lvalue {
     public:
-        VarExpr(llvm::SMLoc Loc, std::string VarName): Expr(Loc), VarName(std::move(VarName)) {}
+        std::string VarName;
+
+        VarExpr(llvm::SMLoc Loc, std::string VarName): Lvalue(Loc, Lvalue::Kind::Var), VarName(std::move(VarName)) {}
 
         void accept(Visitor &V) override {
             V.visit(*this);
         }
 
-        std::string VarName;
+        const std::string &Ident() const override {
+            return VarName;
+        }
+
+        static bool classof(const Lvalue *V) {
+            return V->K == Lvalue::Kind::Var;
+        }
     };
 }
 

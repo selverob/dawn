@@ -3,6 +3,7 @@
 //
 
 #include "Parser.h"
+#include "expr/ArrayIdxExpr.h"
 #include "expr/NumExpr.h"
 #include "expr/VarExpr.h"
 #include "expr/CallExpr.h"
@@ -21,8 +22,8 @@
 #include "type/IdentifierArrayBound.h"
 #include "type/NumericArrayBound.h"
 
-ast::Parser::Parser(llvm::SourceMgr &Sources, Lexer Lexer) : Sources(Sources), L(std::move(Lexer)),
-                                                             NextLexeme(L.getLexeme()), Precedences(11) {
+ast::Parser::Parser(llvm::SourceMgr &Sources, Lexer Lexer) :
+        L(std::move(Lexer)), NextLexeme(L.getLexeme()), Sources(Sources), Precedences(11) {
     Precedences[static_cast<int>(Lexeme::Kind::AND)] = 10;
     Precedences[static_cast<int>(Lexeme::Kind::OR)] = 10;
     Precedences[static_cast<int>(Lexeme::Kind::EQ)] = 20;
@@ -53,10 +54,11 @@ std::unique_ptr<ast::Expr> ast::Parser::parseNumberExpr() {
 std::unique_ptr<ast::Expr> ast::Parser::parseIdentifierExpr() {
     auto Ident = getLexeme();
     assert(Ident.K == Lexeme::Kind::IDENT);
-    if (NextLexeme.K != Lexeme::Kind::LPAR) {
-        return std::make_unique<ast::VarExpr>(Ident.Loc, Ident.IdentifierStr);
-    }
-    return parseFunctionCall(Ident);
+    if (NextLexeme.K == Lexeme::Kind::LPAR)
+        return parseFunctionCall(Ident);
+    if (NextLexeme.Char == '[')
+        return parseArrayIdx(Ident.IdentifierStr);
+    return std::make_unique<ast::VarExpr>(Ident.Loc, Ident.IdentifierStr);
 }
 
 std::unique_ptr<ast::Expr> ast::Parser::parseUnaryOpExpr() {
@@ -261,13 +263,16 @@ std::unique_ptr<ast::Stmt> ast::Parser::parseCompoundStmt() {
 
 std::unique_ptr<ast::Stmt> ast::Parser::parseIdentifierStmt() {
     auto Id = getLexeme();
+    std::unique_ptr<Lvalue> Lval = std::make_unique<VarExpr>(Id.Loc, Id.IdentifierStr);
     assert(Id.K == Lexeme::Kind::IDENT);
+    if (NextLexeme.Char == '[')
+        Lval = parseArrayIdx(Id.IdentifierStr);
     if (NextLexeme.K == Lexeme::Kind::ASSIGN) {
         getLexeme();
         auto Val = parseExpr();
         if (Val == nullptr)
             return nullptr;
-        return std::make_unique<AssignmentStmt>(Id.Loc, Id.IdentifierStr, std::move(Val));
+        return std::make_unique<AssignmentStmt>(Id.Loc, std::move(Lval), std::move(Val));
     }
     if (NextLexeme.K == Lexeme::Kind::LPAR) {
         return std::make_unique<CallStmt>(Id.Loc, parseFunctionCall(Id));
@@ -486,4 +491,16 @@ ast::ArrayBound *ast::Parser::parseArrayBound() {
         return new NumericArrayBound((int) getLexeme().NumericValue * Coefficient);
     }
     return (ArrayBound *) LogError(NextLexeme.Loc, "Invalid token in array type");
+}
+
+std::unique_ptr<ast::Lvalue> ast::Parser::parseArrayIdx(std::string Ident) {
+    assert(NextLexeme.Char == '[');
+    auto StartingLoc = getLexeme().Loc;
+    auto Idx = parseExpr();
+    if (!Idx)
+        return nullptr;
+    if (NextLexeme.Char != ']')
+        return LogError(NextLexeme.Loc, "Array index expression must be closed with a '['");
+    getLexeme();
+    return std::make_unique<ast::ArrayIdxExpr>(StartingLoc, Ident, std::move(Idx));
 }

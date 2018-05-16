@@ -56,6 +56,8 @@ namespace ast {
         void visit(Program &E) override;
 
         void visit(Vars &E) override;
+
+        void visit(ArrayIdxExpr &E) override;
     };
 }
 

@@ -8,17 +8,18 @@
 #include <string>
 #include <memory>
 #include "Stmt.h"
+#include "../expr/Lvalue.h"
 #include "../expr/Expr.h"
 #include "../Visitor.h"
 
 namespace ast {
     class AssignmentStmt : public Stmt {
     public:
-        std::string Var;
+        std::unique_ptr<Lvalue> Lval;
         std::unique_ptr<Expr> Value;
 
-        AssignmentStmt(llvm::SMLoc Loc, std::string Var, std::unique_ptr<Expr> Value) : Stmt(Loc), Var(std::move(Var)),
-                                                                                        Value(std::move(Value)) {}
+        AssignmentStmt(llvm::SMLoc Loc, std::unique_ptr<Lvalue> Lval, std::unique_ptr<Expr> Value) :
+                Stmt(Loc), Lval(std::move(Lval)), Value(std::move(Value)) {}
 
         virtual void accept(Visitor &V) {
             V.visit(*this);

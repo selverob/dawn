@@ -7,6 +7,7 @@
 #include "../ast/expr/BinaryOpExpr.h"
 #include "../ast/expr/CallExpr.h"
 #include "Codegen.h"
+#include "../ast/expr/ArrayIdxExpr.h"
 
 void codegen::Codegen::visit(ast::BinaryOpExpr &E) {
     E.L->accept(*this);
@@ -159,4 +160,27 @@ void codegen::Codegen::callFn(ast::CallExpr &C) {
         LastValue = Builder.CreateCall(F, FunctionArgs);
     else
         LastValue = Builder.CreateCall(F, FunctionArgs, "calltmp");
+}
+
+
+void codegen::Codegen::visit(ArrayIdxExpr &E) {
+    llvm::Value *ArrPtr;
+    ArrPtr = NamedValues[E.VarName];
+    if (!ArrPtr) {
+        ArrPtr = Module.getNamedGlobal(E.VarName);
+    }
+
+    if (!ArrPtr)
+        return LogError(E.Loc, "Indexing an unknown variable");
+
+    //TODO: Add type checking
+    E.Idx->accept(*this);
+    if (!LastValue)
+        return;
+    llvm::Value *Idxs[] = {
+            llvm::ConstantInt::get(llvm::Type::getInt64Ty(Module.getContext()), 0),
+            LastValue
+    };
+    auto *ElemPtr = Builder.CreateGEP(ArrPtr, Idxs,"arridx");
+    LastValue = Builder.CreateLoad(ElemPtr, "arridxld");
 }

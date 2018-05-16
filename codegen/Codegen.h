@@ -19,20 +19,22 @@
 #include "../ast/type/ArrayBound.h"
 #include "../ast/type/Array.h"
 #include "../ast/type/IdentifierArrayBound.h"
+#include "../ast/expr/Lvalue.h"
 
 using namespace ast;
 
 namespace codegen {
     class Codegen : public Visitor {
-        llvm::IRBuilder<> Builder;
         llvm::Module &Module;
-        llvm::Value *LastValue;
+        llvm::IRBuilder<> Builder;
         std::unique_ptr<llvm::legacy::FunctionPassManager> FPM;
         llvm::StringMap<llvm::AllocaInst*> NamedValues;
         llvm::StringMap<ast::Prototype*> Prototypes;
         llvm::StringMap<llvm::Constant*> Constants;
-
         llvm::SourceMgr &Sources;
+
+        llvm::Value *LastValue;
+        bool Finished;
 
         void LogError(llvm::SMLoc Loc, llvm::StringRef Msg) {
             Sources.PrintMessage(Loc, llvm::SourceMgr::DiagKind::DK_Error, Msg);
@@ -51,10 +53,10 @@ namespace codegen {
         llvm::Type *getLLVMType(llvm::SMLoc Loc, ast::Type *T);
         llvm::Value *createZeroInitializer(llvm::IRBuilder<> &B, llvm::AllocaInst *Alloca);
 
+        llvm::Value *getLvalueAddress(ast::Lvalue *Val);
+
         llvm::Error addConstantBoundsToArray(ast::Array *Arr);
         llvm::Error setConstantBoundValue(ast::IdentifierArrayBound *Arr);
-
-        bool Finished;
 
     public:
         Codegen(llvm::SourceMgr &Sources, llvm::Module &Module, llvm::StringMap<ast::Prototype*> StdProtos);
@@ -92,6 +94,8 @@ namespace codegen {
         void visit(Program &E) override;
 
         void visit(Vars &E) override;
+
+        void visit(ArrayIdxExpr &E) override;
 
         bool finishedSuccesfully() const;
     };

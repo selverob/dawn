@@ -11,19 +11,13 @@
 #include "../ast/stmt/ForStmt.h"
 
 void codegen::Codegen::visit(ast::AssignmentStmt &E) {
+    auto Ptr = getLvalueAddress(E.Lval.get());
+    if (!Ptr)
+        return LogError(E.Loc, "Trying to assign to an undeclared variable");
     E.Value->accept(*this);
     if (!LastValue)
         return;
-    auto Alloca = NamedValues[E.Var];
-    if (Alloca) {
-        LastValue = Builder.CreateStore(LastValue, Alloca);
-        return;
-    }
-
-    auto Global = Module.getNamedGlobal(E.Var);
-    if (!Global)
-        return LogError(E.Loc, "Undeclared variable assigned to");
-    LastValue = Builder.CreateStore(LastValue, Global);
+    LastValue = Builder.CreateStore(LastValue, Ptr);
 }
 
 void codegen::Codegen::visit(ast::CallStmt &E) {

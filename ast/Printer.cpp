@@ -21,6 +21,7 @@
 #include "type/Integer.h"
 #include "type/Array.h"
 #include "type/Void.h"
+#include "expr/ArrayIdxExpr.h"
 
 ast::Printer::Printer(llvm::raw_ostream &Out): Out(Out), Indendation(0) {}
 
@@ -85,7 +86,8 @@ void ast::Printer::printOperator(Lexeme::Kind K) {
 }
 
 void ast::Printer::visit(ast::AssignmentStmt &E) {
-    Out << E.Var << " := ";
+    E.Lval->accept(*this);
+    Out << " := ";
     E.Value->accept(*this);
 }
 
@@ -236,4 +238,10 @@ void ast::Printer::printType(ast::Type *T) {
         Out << "array [" << Arr->From << " .. " << Arr->To << "] of ";
         printType(Arr->ElemType);
     }
+}
+
+void ast::Printer::visit(ast::ArrayIdxExpr &E) {
+    Out << E.VarName << '[';
+    E.Idx->accept(*this);
+    Out << ']';
 }

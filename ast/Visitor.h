@@ -7,6 +7,7 @@
 
 
 namespace ast {
+    class ArrayIdxExpr;
     class BinaryOpExpr;
     class CallExpr;
     class NumExpr;
@@ -27,6 +28,7 @@ namespace ast {
 
     class Visitor {
     public:
+        virtual void visit(ArrayIdxExpr &E) = 0;
         virtual void visit(BinaryOpExpr &E) = 0;
         virtual void visit(CallExpr &E) = 0;
         virtual void visit(NumExpr &E) = 0;
