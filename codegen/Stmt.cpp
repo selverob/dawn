@@ -76,9 +76,9 @@ void codegen::Codegen::visit(ast::ForStmt &E) {
     Builder.SetInsertPoint(IterBB);
     llvm::Value *Condition;
     if (E.Operator == Lexeme::Kind::TO) {
-        Condition = Builder.CreateICmpSLT(Builder.CreateLoad(IterVar.second, "iterationvar"), FinalVal);
+        Condition = Builder.CreateICmpSLE(Builder.CreateLoad(IterVar.second, "iterationvar"), FinalVal);
     } else if (E.Operator == Lexeme::Kind::DOWNTO) {
-        Condition = Builder.CreateICmpSGT(Builder.CreateLoad(IterVar.second, "iterationvar"), FinalVal);
+        Condition = Builder.CreateICmpSGE(Builder.CreateLoad(IterVar.second, "iterationvar"), FinalVal);
     } else {
         llvm_unreachable("Invalid operand in for");
     }
