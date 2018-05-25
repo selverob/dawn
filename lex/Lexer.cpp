@@ -39,6 +39,12 @@ Lexeme Lexer::getLexeme() {
     assert(Current != nullptr);
     while (isspace(LastChar))
         readChar();
+    if (LastChar == '#') {
+        while (LastChar != '\n')
+            readChar();
+    }
+    while (isspace(LastChar))
+        readChar();
 
     if (isdigit(LastChar)) {
         return readNumber(10);

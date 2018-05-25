@@ -11,6 +11,8 @@ ones in local examples directory.
 
 Major differences include:
 - Algebraic syntax (x := x - 1, x := x + 1) instead of inc(x), dec(x)
+- '/' operator instead of 'div'
+- Line comments implemented with the # delimiter
 - Stricter syntax around loop block termination
 - write() function not implemented (not required by spec, only used in one
   example)
